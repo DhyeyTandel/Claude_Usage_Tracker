@@ -605,6 +605,7 @@ function createMainWindow() {
     resizable: false,
     alwaysOnTop: true,
     skipTaskbar: true,
+    fullscreenable: false,
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, '..', 'dist-preload', 'preload.js'),
@@ -612,6 +613,15 @@ function createMainWindow() {
       nodeIntegration: false,
       sandbox: true
     }
+  });
+
+  // Allow the popover to appear over fullscreen apps (e.g. fullscreen Chrome).
+  // Requires the elevated 'screen-saver' window level plus visibility on all
+  // Spaces including fullscreen ones; only meaningful on macOS but harmless elsewhere.
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  mainWindow.setVisibleOnAllWorkspaces(true, {
+    visibleOnFullScreen: true,
+    skipTransformProcessType: true
   });
 
   // Security hardening: this window should never open popups or navigate away
