@@ -1,0 +1,128 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Local Font Declarations ────────────────────────────────────────────────── */
+
+/* IBM Plex Sans - Regular */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400;
+  src: url('./assets/fonts/ibm-plex-sans-v23-latin-regular.woff2') format('woff2');
+}
+
+/* IBM Plex Sans - Medium */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 500;
+  src: url('./assets/fonts/ibm-plex-sans-v23-latin-500.woff2') format('woff2');
+}
+
+/* IBM Plex Mono - Regular */
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 400;
+  src: url('./assets/fonts/ibm-plex-mono-v20-latin-regular.woff2') format('woff2');
+}
+
+/* Fraunces - Medium (used for large session percentage) */
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 500;
+  src: url('./assets/fonts/fraunces-v38-latin-500.woff2') format('woff2');
+}
+
+/* ── Design System Variables ────────────────────────────────────────────────── */
+
+:root {
+  /* Light mode (primary palette) */
+  --bg-primary: #FBF9F4;        /* Warm paper */
+  --bg-secondary: #EFE7D8;      /* Secondary beige surface */
+  --bg-track: #F4EEE0;          /* Lighter beige variant for gauge track */
+  --border-hairline: #E9E4D8;   /* Hairline divider */
+  --text-primary: #2B2A26;      /* Warm near-black */
+  --text-secondary: #5C5748;    /* Muted secondary */
+  --text-dim: #8A8478;          /* Desaturated muted */
+  --accent-color: #A85C3A;      /* Muted rust/terracotta */
+  
+  /* Semantic desaturated status colors */
+  --status-allowed: #6B8F5E;    /* Sage green */
+  --status-soft-limit: #C08A3E; /* Muted amber */
+  --status-hard-limit: #B54A3F; /* Muted brick red */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark mode (secondary palette) */
+    --bg-primary: #151412;        /* Near-black paper */
+    --bg-secondary: #2C2A26;      /* Muted warm grey */
+    --bg-track: #23221F;          /* Darker track */
+    --border-hairline: #33312C;   /* Dark hairline */
+    --text-primary: #F3EFE7;      /* Warm paper white */
+    --text-secondary: #AAA498;    /* Muted secondary */
+    --text-dim: #7C7768;          /* Desaturated muted */
+    --accent-color: #A85C3A;      /* Terracotta remains same */
+    
+    /* Semantic desaturated status colors (slightly adjusted for dark mode contrast) */
+    --status-allowed: #7AA36C;
+    --status-soft-limit: #D09E51;
+    --status-hard-limit: #C65C51;
+  }
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'IBM Plex Sans', -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Typography Utilities ────────────────────────────────────────────────── */
+
+.font-sans-plex {
+  font-family: 'IBM Plex Sans', sans-serif;
+}
+
+.font-mono-plex {
+  font-variant-numeric: tabular-nums;
+  font-family: 'IBM Plex Mono', monospace;
+}
+
+.font-serif-fraunces {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 500;
+}
+
+/* Custom 0.5px hairline border utilities */
+.border-hairline-t {
+  border-top: 0.5px solid var(--border-hairline);
+}
+.border-hairline-b {
+  border-bottom: 0.5px solid var(--border-hairline);
+}
+.border-hairline-all {
+  border: 0.5px solid var(--border-hairline);
+}
+
+/* Styled scrollbars for settings panel */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-hairline);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-dim);
+}
