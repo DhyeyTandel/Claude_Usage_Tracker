@@ -2,6 +2,18 @@
 
 A compact desktop menu bar / system tray widget showing real-time **Claude Code (CLI)** utilization metrics and organization **Anthropic API spend**.
 
+## Who Can Use This
+
+Each section of the widget has different account requirements:
+
+| Feature | Requirement |
+|---|---|
+| Session & weekly limit gauges | **Claude Pro or Max subscription**, signed into Claude Code (reads subscription rate-limit headers) |
+| Local token counters (in/out) | Any Claude Code usage (reads local `~/.claude` logs) |
+| Monthly API spend | An **Anthropic Console Admin API key** (`sk-ant-admin...`) — no subscription needed |
+
+**Free-plan users:** Claude's free plan does not include Claude Code, and Anthropic exposes no public API for free-plan usage limits, so the gauges will show an empty state. The header badge reflects what was detected: `PRO` (subscription limits live), `API` (Admin key only), or no badge.
+
 ## Features
 
 - **Session & Weekly Gauges**: Real-time horizonal tick-mark indicators tracking utilization for `SESSION · 5H` and `WEEKLY · 7D` windows.

@@ -246,9 +246,13 @@ export default function App() {
                 <span className="text-[10px] tracking-widest font-sans-plex font-bold text-[var(--text-primary)]">
                   CLAUDE USAGE
                 </span>
-                <span className="text-[9px] font-sans-plex font-bold tracking-wider text-[var(--text-secondary)] bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded-sm uppercase ml-2 leading-none">
-                  PRO
-                </span>
+                {/* Plan badge: PRO when subscription limits are live, API when
+                    only an Admin key is configured, hidden otherwise */}
+                {(!usage.error || configStatus.hasAdminKey) && (
+                  <span className="text-[9px] font-sans-plex font-bold tracking-wider text-[var(--text-secondary)] bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded-sm uppercase ml-2 leading-none">
+                    {!usage.error ? 'PRO' : 'API'}
+                  </span>
+                )}
               </div>
               <button 
                 onClick={handleOpenSettings}
@@ -275,7 +279,7 @@ export default function App() {
               
               {usage.error ? (
                 <div className="text-[10px] text-[var(--text-dim)] italic py-2 leading-relaxed">
-                  Sign in to Claude Code to see session usage
+                  Requires a Claude Pro/Max subscription with Claude Code signed in
                 </div>
               ) : (
                 <div className={`flex flex-col ${isUsageStale ? 'opacity-40' : ''}`}>
@@ -312,7 +316,7 @@ export default function App() {
 
               {usage.error ? (
                 <div className="text-[10px] text-[var(--text-dim)] italic py-2 leading-relaxed">
-                  Sign in to Claude Code to see weekly limits
+                  Requires a Claude Pro/Max subscription with Claude Code signed in
                 </div>
               ) : (
                 <div className={`flex flex-col space-y-1.5 ${isUsageStale ? 'opacity-40' : ''}`}>
