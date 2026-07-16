@@ -54,6 +54,35 @@ Ensure you have **Node.js** (v18+) and **npm** installed on your system.
 
 ### Installation
 
+#### macOS (via Homebrew Cask)
+
+You can install the desktop widget using Homebrew Cask. Since Homebrew requires all casks to be loaded from a tap, you can install it using one of the options below.
+
+**Option 1: Local Installation (for testing/development)**
+If you've cloned this repository, you can create a local tap and load the cask from it:
+```bash
+# 1. Create a new local tap
+brew tap-new local/claude-usage-tracker
+
+# 2. Create the Casks directory and copy the cask file into the tap
+mkdir -p $(brew --repository)/Library/Taps/local/homebrew-claude-usage-tracker/Casks/
+cp Casks/claude-usage-tracker.rb $(brew --repository)/Library/Taps/local/homebrew-claude-usage-tracker/Casks/
+
+# 3. Install it
+brew install --cask local/claude-usage-tracker/claude-usage-tracker
+```
+
+**Option 2: Via a Personal Tap**
+To install or share it as a standard tap:
+1. Create a public GitHub repository named `homebrew-tap` (or similar).
+2. Place the [claude-usage-tracker.rb](file:///Users/dhyeytandel/Dhyey_Gemini/Projects/Claude_Usage_Tracker/Casks/claude-usage-tracker.rb) formula in a `Casks` folder inside that repository.
+3. Users can then install it using:
+   ```bash
+   brew install --cask dhyeytandel/tap/claude-usage-tracker
+   ```
+
+#### From Source (Development / Custom Build)
+
 Clone this repository and run the package installer:
 
 ```bash

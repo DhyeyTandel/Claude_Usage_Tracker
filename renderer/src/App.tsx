@@ -119,6 +119,11 @@ export default function App() {
     error: null
   });
 
+  // Outage notification settings state & system status cache
+  const [statusOutageNotifyVal, setStatusOutageNotifyVal] = useState(true);
+  const [systemStatus, setSystemStatus] = useState<{ status: string; incidentName: string }>({ status: 'operational', incidentName: '' });
+  const [trayStyleVal, setTrayStyleVal] = useState('ring');
+
   // Subscribe to Electron IPC data events
   useEffect(() => {
     const unsubUsage = electronAPI.onUsageUpdate((data: any) => {
@@ -135,6 +140,109 @@ export default function App() {
 
     const unsubConfig = electronAPI.onConfigStatusUpdate((data: any) => {
       if (data) setConfigStatus(data);
+    });
+
+    const unsubSystemStatus = electronAPI.onSystemStatusUpdate((data: any) => {
+      if (data) setSystemStatus(data);
+    });
+
+    const drawTrayIcon = (pctVal: number, statusStr: string, hasError: boolean, trayStyle: string, isSystemDark: boolean, size: number): string => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return '';
+
+      // Set scale factor ratio relative to logical 16x16
+      const ratio = size / 16;
+
+      // Color mapping
+      let color = isSystemDark ? '#7C7768' : '#8A8478'; // Default disconnected grey
+      if (!hasError && statusStr !== 'disconnected') {
+        if (pctVal >= 1.0 || statusStr === 'hard_limited') {
+          color = isSystemDark ? '#C65C51' : '#B54A3F'; // Red
+        } else if (statusStr === 'soft_limited' || statusStr === 'allowed_warning') {
+          color = isSystemDark ? '#D09E51' : '#C08A3E'; // Amber
+        } else {
+          color = isSystemDark ? '#7AA36C' : '#6B8F5E'; // Green
+        }
+      }
+
+      const trackColor = isSystemDark ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)';
+
+      ctx.clearRect(0, 0, size, size);
+
+      if (trayStyle === 'dot') {
+        // Simple dot: a solid colored circle (diameter ~7px at 1x, i.e., radius 3.5 logical px)
+        const r = 3.5 * ratio;
+        ctx.beginPath();
+        ctx.arc(size / 2, size / 2, r, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+      } else if (trayStyle === 'bar') {
+        // Vertical level progress bar: width 4 logical px, height 12 logical px, centered
+        const w = 4 * ratio;
+        const h = 12 * ratio;
+        const x = (size - w) / 2;
+        const y = (size - h) / 2;
+
+        // Draw track
+        ctx.fillStyle = trackColor;
+        ctx.fillRect(x, y, w, h);
+
+        // Draw fill (from bottom)
+        const fillHeight = h * Math.min(1.0, Math.max(0.0, pctVal || 0.0));
+        if (fillHeight > 0) {
+          ctx.fillStyle = color;
+          ctx.fillRect(x, y + h - fillHeight, w, fillHeight);
+        }
+      } else if (trayStyle === 'numeric') {
+        // Numeric percentage: text centered in the canvas
+        // This is intentionally opt-in because text size can be hard to read at 16x16.
+        const pctNum = Math.min(100, Math.round((pctVal || 0.0) * 100));
+        let text = String(pctNum);
+        if (hasError) text = '-';
+        
+        ctx.fillStyle = color;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Font sizing: use slightly smaller font for '100'
+        const fontSize = (text.length >= 3 ? 8 : 10) * ratio;
+        ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
+        ctx.fillText(text, size / 2, size / 2);
+      } else {
+        // Default: 'ring' - the existing partial ring rendering style
+        const center = size / 2;
+        const r = (size / 2) - 2 * ratio; // Margin of 2 logical px
+        const lw = 2 * ratio; // 2 logical px width
+
+        // Draw track
+        ctx.beginPath();
+        ctx.arc(center, center, r, 0, 2 * Math.PI);
+        ctx.strokeStyle = trackColor;
+        ctx.lineWidth = lw;
+        ctx.stroke();
+
+        // Draw fill arc (top start, clockwise)
+        const pctClamped = Math.min(1.0, Math.max(0.0, pctVal || 0.0));
+        if (pctClamped > 0) {
+          ctx.beginPath();
+          ctx.arc(center, center, r, -Math.PI / 2, -Math.PI / 2 + pctClamped * 2 * Math.PI);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = lw;
+          ctx.stroke();
+        }
+      }
+
+      return canvas.toDataURL('image/png');
+    };
+
+    const unsubTrayRender = electronAPI.onRenderTrayIcon((data: any) => {
+      const { pctVal, statusStr, hasError, trayStyle, isSystemDark } = data;
+      const dataUrl1x = drawTrayIcon(pctVal, statusStr, hasError, trayStyle, isSystemDark, 16);
+      const dataUrl2x = drawTrayIcon(pctVal, statusStr, hasError, trayStyle, isSystemDark, 32);
+      electronAPI.sendTrayImage({ dataUrl1x, dataUrl2x });
     });
 
     // Load initial theme and settings
@@ -158,6 +266,8 @@ export default function App() {
       unsubTokens();
       unsubSpend();
       unsubConfig();
+      unsubSystemStatus();
+      unsubTrayRender();
     };
   }, []);
 
@@ -229,6 +339,9 @@ export default function App() {
     setTelegramTokenHint(config.telegramTokenHint || '');
     setTelegramTestResult({ testing: false, success: null, error: null });
 
+    setStatusOutageNotifyVal(config.statusOutageNotify !== false);
+    setTrayStyleVal(config.trayStyle || 'ring');
+
     setView('settings');
   };
 
@@ -266,7 +379,9 @@ export default function App() {
       pollIntervalRateLimit: rateLimitNum,
       pollIntervalSpend: spendNum,
       launchAtLogin: launchAtLoginVal,
-      theme: themeVal
+      theme: themeVal,
+      statusOutageNotify: statusOutageNotifyVal,
+      trayStyle: trayStyleVal
     };
 
     if (trimmedAdminApiKey !== '') {
@@ -362,6 +477,27 @@ export default function App() {
         <>
           {/* Main Dashboard Panel */}
           <div className="flex flex-col flex-1 justify-between">
+            {systemStatus && systemStatus.status !== 'operational' && (
+              <div 
+                onClick={() => electronAPI.openStatusPage()}
+                className="flex items-center space-x-2 px-2.5 py-1.5 mb-2 border border-hairline-all rounded bg-[var(--bg-secondary)] hover:bg-[var(--border-hairline)] transition-colors cursor-pointer select-none"
+              >
+                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  systemStatus.status === 'degraded_performance' 
+                    ? 'bg-[var(--status-soft-limit)]' 
+                    : 'bg-[var(--status-hard-limit)]'
+                }`} />
+                <span className="text-[9px] font-sans-plex font-medium text-[var(--text-secondary)] leading-none truncate flex-1">
+                  {systemStatus.incidentName && systemStatus.incidentName.length <= 40
+                    ? systemStatus.incidentName
+                    : `Claude: ${systemStatus.status.replace('_', ' ')}`}
+                </span>
+                <span className="text-[8px] font-sans-plex text-[var(--text-dim)] shrink-0 font-bold uppercase tracking-wider">
+                  View
+                </span>
+              </div>
+            )}
+
             {/* Header row */}
             <div className="flex justify-between items-center pb-2.5 border-b border-hairline-b">
               <div className="flex items-center">
@@ -823,6 +959,21 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Tray Icon Style Dropdown */}
+                <div>
+                  <label className="block text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium mb-1">Tray Icon Style</label>
+                  <select
+                    value={trayStyleVal}
+                    onChange={(e) => setTrayStyleVal(e.target.value)}
+                    className="w-full text-xs font-sans-plex bg-[var(--bg-secondary)] border border-hairline-all rounded px-2 py-1 text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-color)]"
+                  >
+                    <option value="ring">Ring (Default)</option>
+                    <option value="bar">Bar (Vertical Level)</option>
+                    <option value="dot">Dot (Minimalist Status)</option>
+                    <option value="numeric">Numeric Percentage (Legibility Tradeoff)</option>
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium mb-1">Rate-Limit Poll Interval (sec)</label>
                   <input 
@@ -875,6 +1026,19 @@ export default function App() {
                   />
                   <label htmlFor="launchAtLogin" className="text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium select-none cursor-pointer">
                     Launch app at login
+                  </label>
+                </div>
+
+                <div className="flex items-center space-x-2 py-1">
+                  <input 
+                    type="checkbox"
+                    id="statusOutageNotify"
+                    checked={statusOutageNotifyVal}
+                    onChange={(e) => setStatusOutageNotifyVal(e.target.checked)}
+                    className="w-3 h-3 accent-[var(--accent-color)]"
+                  />
+                  <label htmlFor="statusOutageNotify" className="text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium select-none cursor-pointer">
+                    Notify me about Claude outages
                   </label>
                 </div>
 

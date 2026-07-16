@@ -688,6 +688,20 @@
               Download for Windows (x64) →
             </a>
           </div>
+          
+          <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px;">
+            <span style="color: var(--muted);">Or via Homebrew:</span>
+            <div style="display: inline-flex; align-items: center; background: rgba(0, 0, 0, 0.04); border: 1px solid var(--hairline); border-radius: 4px; padding: 2px 4px;">
+              <code style="font-family: 'JetBrains Mono', monospace; font-size: 11px; padding: 2px 8px; color: var(--ink); border: none; background: transparent;">brew install --cask dhyeytandel/tap/claude-usage-tracker</code>
+              <button onclick="copyBrewCommand()" id="copy-btn" style="background: none; border: none; padding: 2px 6px; cursor: pointer; color: var(--muted); display: flex; align-items: center; justify-content: center; outline: none; transition: color 0.15s ease;" title="Copy to clipboard" onmouseover="this.style.color='var(--ink)'" onmouseout="if(this.title!=='Copied!')this.style.color=''">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+
           <a href="https://github.com/DhyeyTandel/Claude_Usage_Tracker" class="btn-pill btn-secondary" target="_blank" style="margin-left: 0; padding: 10px 20px; font-size: 12px; border-color: var(--hairline);">
             View Source Code on GitHub ↗
           </a>
@@ -905,6 +919,34 @@
       <span>&copy; 2026 Dhyey Tandel. All rights reserved.</span>
     </div>
   </footer>
+
+  <script>
+    function copyBrewCommand() {
+      const command = 'brew install --cask dhyeytandel/tap/claude-usage-tracker';
+      navigator.clipboard.writeText(command).then(() => {
+        const btn = document.getElementById('copy-btn');
+        if (!btn) return;
+        const originalHTML = btn.innerHTML;
+        
+        // Show success state
+        btn.innerHTML = `
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B8F5E" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="pointer-events: none;">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        `;
+        btn.style.color = '#6B8F5E';
+        btn.title = 'Copied!';
+        
+        setTimeout(() => {
+          btn.innerHTML = originalHTML;
+          btn.style.color = '';
+          btn.title = 'Copy to clipboard';
+        }, 1500);
+      }).catch(err => {
+        console.error('Failed to copy text: ', err);
+      });
+    }
+  </script>
 
 </body>
 </html>

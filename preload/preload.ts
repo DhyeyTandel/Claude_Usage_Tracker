@@ -22,6 +22,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('config-status-update', listener);
     return () => ipcRenderer.removeListener('config-status-update', listener);
   },
+  onSystemStatusUpdate: (callback: (data: any) => void) => {
+    const listener = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('system-status-update', listener);
+    return () => ipcRenderer.removeListener('system-status-update', listener);
+  },
+  onRenderTrayIcon: (callback: (data: any) => void) => {
+    const listener = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('render-tray-icon', listener);
+    return () => ipcRenderer.removeListener('render-tray-icon', listener);
+  },
 
   // Invoke commands returning promises
   getSettings: () => ipcRenderer.invoke('get-settings'),
@@ -33,5 +43,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   refreshAll: () => ipcRenderer.invoke('refresh-all'),
 
   // Direct send messages (one-way)
-  closeSettings: () => ipcRenderer.send('close-settings')
+  closeSettings: () => ipcRenderer.send('close-settings'),
+  openStatusPage: () => ipcRenderer.send('open-status-page'),
+  sendTrayImage: (payload: any) => ipcRenderer.send('update-tray-image', payload)
 });

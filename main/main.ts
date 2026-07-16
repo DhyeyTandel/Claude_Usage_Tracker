@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, dialog, ipcMain, safeStorage, screen, nativeImage, powerMonitor } from 'electron';
+import { app, BrowserWindow, Tray, dialog, ipcMain, safeStorage, screen, nativeImage, powerMonitor, shell, Notification, nativeTheme } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
@@ -57,16 +57,19 @@ let pollIntervalRateLimit = Math.max(MIN_POLL_INTERVAL, (store.get('pollInterval
 let pollIntervalSpend = Math.max(MIN_POLL_INTERVAL, (store.get('pollIntervalSpend') as number) || DEFAULT_POLL_INTERVAL);
 let monthlyBudget = (store.get('monthlyBudget') as number) || DEFAULT_MONTHLY_BUDGET;
 let launchAtLogin = !!store.get('launchAtLogin');
+let trayStyle = (store.get('trayStyle') as string) || 'ring';
 
 // Data caches
 let rateLimitData: any = null;
 let tokenCounts: any = { session_input: 0, session_output: 0, today_input: 0, today_output: 0, last_activity: null };
 let spendData: any = null;
+let systemStatusData: any = { status: 'operational', incidentName: '' };
 
 // Polling timers
 let rateLimitTimer: NodeJS.Timeout | null = null;
 let tokenTimer: NodeJS.Timeout | null = null;
 let spendTimer: NodeJS.Timeout | null = null;
+let systemStatusTimer: NodeJS.Timeout | null = null;
 
 // Auto-update: check on launch and every 4 hours while running
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
@@ -376,31 +379,40 @@ async function getValidToken(forceRefresh = false): Promise<string> {
 function updateTrayIcon(pctVal: number, statusStr: string, hasError: boolean) {
   if (!tray) return;
 
-  let statusPrefix = 'disconnected';
-  if (!hasError) {
-    if (pctVal >= 1.0) {
-      statusPrefix = 'hard';
-    } else if (statusStr === 'allowed') statusPrefix = 'allowed';
-    else if (statusStr === 'soft_limited' || statusStr === 'allowed_warning') statusPrefix = 'soft';
-    else if (statusStr === 'hard_limited') statusPrefix = 'hard';
-  }
-
-  // Clamp and round percent to nearest 10
-  const pct = Math.max(0, Math.min(100, Math.round((pctVal || 0) * 10) * 10));
-  const iconName = `${statusPrefix}-${pct}.png`;
-  const iconPath = path.join(__dirname, '..', 'assets', 'tray', iconName);
-
-  if (fs.existsSync(iconPath)) {
-    try {
-      tray.setImage(iconPath);
-    } catch (err: any) {
-      log.error('Failed to set tray image:', err.message);
-    }
+  // Render using canvas in the renderer process (even if hidden)
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('render-tray-icon', {
+      pctVal,
+      statusStr,
+      hasError,
+      trayStyle,
+      isSystemDark: nativeTheme.shouldUseDarkColors
+    });
   } else {
-    log.warn('Tray icon not found:', iconPath);
+    // If the window is not created/available yet, fall back to the static ring icons
+    let statusPrefix = 'disconnected';
+    if (!hasError) {
+      if (pctVal >= 1.0) {
+        statusPrefix = 'hard';
+      } else if (statusStr === 'allowed') statusPrefix = 'allowed';
+      else if (statusStr === 'soft_limited' || statusStr === 'allowed_warning') statusPrefix = 'soft';
+      else if (statusStr === 'hard_limited') statusPrefix = 'hard';
+    }
+
+    const pct = Math.max(0, Math.min(100, Math.round((pctVal || 0) * 10) * 10));
+    const iconName = `${statusPrefix}-${pct}.png`;
+    const iconPath = path.join(__dirname, '..', 'assets', 'tray', iconName);
+
+    if (fs.existsSync(iconPath)) {
+      try {
+        tray.setImage(iconPath);
+      } catch (err: any) {
+        log.error('Failed to set fallback tray image:', err.message);
+      }
+    }
   }
 
-  // Update hover tooltip
+  // Update hover tooltip (always shows full details in all styles)
   const pctDisplay = Math.min(100, Math.round(pctVal * 100));
   const statusDisplay = statusStr ? statusStr.replace('_', ' ') : 'disconnected';
   if (hasError) {
@@ -840,6 +852,129 @@ function sendConfigStatus() {
 }
 
 /**
+ * Pushes system status to renderer
+ */
+function sendSystemStatus() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('system-status-update', systemStatusData);
+  }
+}
+
+/**
+ * Fetch and check Claude system status from status page summary
+ */
+async function fetchSystemStatus() {
+  try {
+    log.info('Fetching Claude system status...');
+    const response = await fetch('https://status.anthropic.com/api/v2/summary.json');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const data = await response.json() as any;
+
+    const components = data.components || [];
+    const relevantComponents = components.filter((c: any) => {
+      const name = (c.name || '').toLowerCase();
+      return name.includes('api') || name.includes('claude code');
+    });
+
+    const statusSeverity: Record<string, number> = {
+      'operational': 0,
+      'degraded_performance': 1,
+      'partial_outage': 2,
+      'major_outage': 3
+    };
+
+    let worstStatus = 'operational';
+    let worstSeverity = 0;
+
+    for (const c of relevantComponents) {
+      const status = c.status || 'operational';
+      const severity = statusSeverity[status] || 0;
+      if (severity > worstSeverity) {
+        worstSeverity = severity;
+        worstStatus = status;
+      }
+    }
+
+    const incidents = data.incidents || [];
+    const activeIncidents = incidents.filter((i: any) => i.status !== 'resolved');
+    const firstActiveIncident = activeIncidents[0] || null;
+
+    let currentStatus = worstStatus;
+    let currentIncidentName = firstActiveIncident ? firstActiveIncident.name : '';
+    let currentIncidentId = firstActiveIncident ? firstActiveIncident.id : '';
+
+    // --- ACCEPTANCE CHECK MOCK OVERRIDE (Temporary/Conditional) ---
+    // If we want to simulate a major outage for testing, we can uncomment the lines below:
+    // currentStatus = 'major_outage';
+    // currentIncidentName = 'Mock Major API Outage';
+    // currentIncidentId = 'mock-incident-123';
+    // ----------------------------------------------------------------
+
+    const lastStatus = store.get('lastSystemStatus') || 'operational';
+    const lastIncidentId = store.get('lastIncidentId') || '';
+    const notifyToggle = store.get('statusOutageNotify') !== false;
+
+    let shouldNotify = false;
+    if (currentStatus !== 'operational' && lastStatus === 'operational') {
+      shouldNotify = true;
+    } else if (currentStatus !== 'operational' && currentIncidentId && currentIncidentId !== lastIncidentId) {
+      shouldNotify = true;
+    }
+
+    if (shouldNotify && notifyToggle) {
+      if (Notification.isSupported()) {
+        const title = 'Claude Status Alert';
+        const displayStatus = currentStatus.replace('_', ' ');
+        const body = `Claude is experiencing ${displayStatus}.${currentIncidentName ? ` Incident: ${currentIncidentName}` : ''}`;
+        
+        new Notification({
+          title,
+          body
+        }).show();
+        log.info('Outage notification shown successfully');
+      }
+    }
+
+    // Save states to store
+    store.set('lastSystemStatus', currentStatus);
+    if (currentIncidentId) {
+      store.set('lastIncidentId', currentIncidentId);
+    } else if (currentStatus === 'operational') {
+      store.delete('lastIncidentId');
+    }
+
+    // Update global cache
+    systemStatusData = {
+      status: currentStatus,
+      incidentName: currentIncidentName
+    };
+
+    sendSystemStatus();
+
+  } catch (err: any) {
+    log.error('Failed to fetch system status (non-fatal):', err.message);
+  }
+}
+
+/**
+ * Start independent system status polling (default 5 minutes)
+ */
+function startSystemStatusPolling() {
+  if (systemStatusTimer) {
+    clearInterval(systemStatusTimer);
+  }
+
+  // Run immediately on startup
+  fetchSystemStatus();
+
+  // Poll every 5 minutes (300,000 ms)
+  systemStatusTimer = setInterval(fetchSystemStatus, 5 * 60 * 1000);
+  log.info('System status polling started (5-minute interval).');
+}
+
+/**
  * Starts all polling routines
  */
 function startPolling() {
@@ -1243,6 +1378,7 @@ function createMainWindow() {
     // Resume polling when panel is opened and refresh immediately
     startPolling();
     sendConfigStatus();
+    sendSystemStatus();
   });
 
   mainWindow.on('hide', () => {
@@ -1385,6 +1521,23 @@ app.whenReady().then(() => {
   scheduleWeeklyReport();
   manageNotificationBackgroundPoll();
 
+  // Initialize Claude system status polling
+  startSystemStatusPolling();
+
+  // Re-render tray icon immediately when the macOS system theme changes (e.g. menu bar mode switch)
+  nativeTheme.on('updated', () => {
+    log.info('macOS Theme updated: re-rendering tray icon');
+    if (rateLimitData) {
+      updateTrayIcon(
+        rateLimitData.session_pct,
+        rateLimitData.status,
+        !!rateLimitData.error
+      );
+    } else {
+      updateTrayIcon(0, 'disconnected', true);
+    }
+  });
+
   // Auto-update: check on launch + periodically (no-ops / logs only when
   // unpackaged or when no GitHub Releases feed is configured yet).
   setupAutoUpdater();
@@ -1450,7 +1603,9 @@ ipcMain.handle('get-settings', () => {
     telegramChatId: getTelegramChatId(),
     hasTelegramToken: !!tgToken,
     telegramTokenHint: tgToken ? `••••${tgToken.slice(-4)}` : '',
-    theme: (store.get('theme') as string) || 'system'
+    theme: (store.get('theme') as string) || 'system',
+    statusOutageNotify: store.get('statusOutageNotify') !== false,
+    trayStyle: trayStyle
   };
 });
 
@@ -1555,6 +1710,13 @@ ipcMain.handle('save-settings', async (_event, settings: any) => {
         return { success: false, error: 'Secure storage is unavailable on this system, so the Telegram token was not saved.' };
       }
     }
+  }
+  if (settings.statusOutageNotify !== undefined) {
+    store.set('statusOutageNotify', !!settings.statusOutageNotify);
+  }
+  if (settings.trayStyle !== undefined) {
+    trayStyle = settings.trayStyle;
+    store.set('trayStyle', trayStyle);
   }
 
   log.info('Settings saved and updated successfully');
@@ -1661,7 +1823,8 @@ ipcMain.handle('refresh-all', async () => {
   log.info('Manual Refresh: triggering immediate data update');
   await Promise.all([
     fetchRateLimits(),
-    fetchSpendReport()
+    fetchSpendReport(),
+    fetchSystemStatus()
   ]);
   updateTokenCounts();
   return { success: true };
@@ -1676,5 +1839,35 @@ ipcMain.on('close-settings', () => {
     if (tokenCounts) mainWindow.webContents.send('tokens-update', tokenCounts);
     if (spendData) mainWindow.webContents.send('spend-update', spendData);
     sendConfigStatus();
+    sendSystemStatus();
+  }
+});
+
+ipcMain.on('open-status-page', () => {
+  log.info('Opening Anthropic status page...');
+  shell.openExternal('https://status.anthropic.com');
+});
+
+ipcMain.on('update-tray-image', (event, { dataUrl1x, dataUrl2x }) => {
+  if (!tray) return;
+
+  try {
+    const base64_1x = dataUrl1x.replace(/^data:image\/png;base64,/, '');
+    const base64_2x = dataUrl2x.replace(/^data:image\/png;base64,/, '');
+
+    const img1x = nativeImage.createFromBuffer(Buffer.from(base64_1x, 'base64'), { scaleFactor: 1.0 });
+    const img2x = nativeImage.createFromBuffer(Buffer.from(base64_2x, 'base64'), { scaleFactor: 2.0 });
+
+    const finalImg = nativeImage.createFromBuffer(img1x.toPNG(), { scaleFactor: 1.0 });
+    finalImg.addRepresentation({
+      scaleFactor: 2.0,
+      width: 16,
+      height: 16,
+      buffer: img2x.toPNG()
+    });
+
+    tray.setImage(finalImg);
+  } catch (err: any) {
+    log.error('Failed to set dynamic tray image:', err.message);
   }
 });

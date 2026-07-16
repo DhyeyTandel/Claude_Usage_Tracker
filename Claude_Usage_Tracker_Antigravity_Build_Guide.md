@@ -231,6 +231,49 @@ I need confidence this app behaves correctly for someone installing it fresh, wi
 Acceptance check: show me a screenshot (or describe exactly what renders) at each stage of the clean-install walkthrough, and confirm no errors appeared in the electron-log output during the whole run.
 ```
 
+## Prompt 13 — Claude status / downtime alert
+
+```
+Add a Claude system-status alert, sourced from Anthropic's public status page (status.anthropic.com, on Atlassian Statuspage) — this is a fully public, unauthenticated data source, no gray area at all unlike the OAuth-token or Admin-API paths, so feel free to poll it more freely, but still be a good citizen (every 5 minutes is plenty).
+
+Fetch (main process):
+- Poll GET https://status.anthropic.com/api/v2/summary.json on its own independent interval (default 5 minutes), completely separate from the rate-limit and spend polling loops. Verify the actual response shape first (standard Statuspage format is {page, components: [{id, name, status}], incidents: [...]}, but confirm against the live endpoint rather than assuming) and adapt the parser to what's actually returned.
+- From the components list, find the ones relevant to this app (something matching "API", "Claude Code" — match by name since component IDs can change) and derive an overall status: operational, degraded_performance, partial_outage, or major_outage. Also surface the name/summary of any active (unresolved) incident.
+- If the fetch fails, fail silently (log only) — this is a nice-to-have, never let it break the core rate-limit/spend features.
+
+UI:
+- When everything is operational, show nothing — no banner, no extra chrome, keep the calm default popover exactly as it is.
+- When status is anything other than operational, show a thin banner strip at the very top of the popover, above the "CLAUDE USAGE" header: a small status-colored dot (reuse the existing amber/red semantic colors), short text ("Claude API — degraded performance", or the incident name if short enough), and make the whole banner clickable to open https://status.anthropic.com in the default browser.
+- Keep the banner's styling consistent with the rest of the app (same fonts, same muted palette) — it should look like a natural part of the widget, not a jarring alert box.
+
+Notifications:
+- When status transitions from operational to anything else, fire one native OS notification ("Claude is experiencing degraded performance" / etc.) — do not repeat it for the same ongoing incident, only on the transition. Track the last-seen incident id/status in electron-store to dedupe across app restarts too.
+- Add a Settings toggle ("Notify me about Claude outages," default on) to let me disable this specifically, separate from any other notification settings.
+
+Acceptance check: since I can't guarantee a live incident to test against, verify this by temporarily hardcoding a fake "major_outage" response in the fetch function, confirming the banner and a notification both appear correctly, then removing the hardcoded override and confirming it goes back to fetching the real endpoint and showing nothing when operational.
+```
+
+## Prompt 14 — selectable tray icon styles
+
+```
+Right now the tray icon renders one fixed style (a partial ring/bar, colored by status). Add a Settings option letting the user choose between multiple tray icon styles, applied live without restarting the app:
+
+Styles to implement (all reuse the existing green/amber/red status-color logic and the same session-percentage value):
+1. "Ring" (current default) — the existing partial-ring rendering, unchanged.
+2. "Bar" — a small filled vertical or horizontal bar instead of a ring, same fill-by-percentage concept, different shape.
+3. "Dot" — the simplest option: a single small solid-colored dot with no percentage encoding at all, purely status (green/amber/red) at a glance. No numeric or fill information.
+4. "Numeric" — the original percentage-as-text-in-icon approach, offered here as an explicit opt-in for users who want it despite the legibility tradeoff at small sizes (leave a code comment noting this is intentionally opt-in, not the default, because of that tradeoff).
+
+Implementation:
+- Add a "Tray icon style" setting (radio buttons or a dropdown) in the Settings view, persisted via electron-store, defaulting to "Ring."
+- Refactor the existing tray icon generation function into one that takes the style as a parameter and dispatches to the right renderer, rather than four separate copy-pasted functions — share the percentage/color logic across all four.
+- Changing the setting must update the live tray icon immediately, no app restart required.
+- Regardless of which style is chosen, the tray icon's hover tooltip must always show the full detail (exact percentage, status, reset countdown) — the visual style is about the icon glyph only, never about hiding information that's available elsewhere.
+- Preserve the existing macOS template-image / light-dark menu bar adaptation and Retina (@2x) handling for every style, not just the default.
+
+Acceptance check: cycle through all four styles at runtime and confirm the tray icon updates immediately each time, confirm the tooltip still shows full detail in every style, and confirm light/dark menu bar adaptation still works for at least the Ring and Dot styles.
+```
+
 ---
 
 ## Notes for you (not for Antigravity)
