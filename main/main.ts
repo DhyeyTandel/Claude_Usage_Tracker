@@ -1133,8 +1133,9 @@ function getPopoverPosition(): { x: number; y: number } {
   
   const windowBounds = mainWindow.getBounds();
   const trayBounds = tray.getBounds();
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const displayBounds = primaryDisplay.workArea;
+  // Find the display matching the tray bounds to support external displays correctly
+  const activeDisplay = screen.getDisplayMatching(trayBounds);
+  const displayBounds = activeDisplay.workArea;
 
   // Width and height of our popover window
   const width = windowBounds.width || 340;
