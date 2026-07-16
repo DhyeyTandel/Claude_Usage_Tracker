@@ -27,7 +27,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: any) => ipcRenderer.invoke('save-settings', settings),
   removeApiKey: () => ipcRenderer.invoke('remove-api-key'),
+  resetAllData: () => ipcRenderer.invoke('reset-all-data'),
   testConnection: () => ipcRenderer.invoke('test-connection'),
+  testTelegram: () => ipcRenderer.invoke('test-telegram'),
   refreshAll: () => ipcRenderer.invoke('refresh-all'),
 
   // Direct send messages (one-way)

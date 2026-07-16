@@ -2,6 +2,14 @@
 
 A compact desktop menu bar / system tray widget showing real-time **Claude Code (CLI)** utilization metrics and organization **Anthropic API spend**.
 
+## Privacy & data access
+
+- **What it reads.** The app reads Claude Code’s local OAuth token from `~/.claude/.credentials.json`, or from the macOS Keychain item `Claude Code-credentials` if the file isn’t there. It also reads local JSONL session logs under `~/.claude/projects/` for the in/out token counts. An Anthropic Admin API key is only read if you choose to add one in Settings.
+
+- **What it sends and where.** Outbound requests go only to `api.anthropic.com`, using your own credentials to read your own usage and spend. Nothing is sent to any third-party server, and there is no telemetry or analytics of any kind.
+
+- **Where data lives locally, and how to remove it.** App settings and the encrypted Admin API key (if you added one) are stored by electron-store at `~/Library/Application Support/claude-usage-tracker/config.json` on macOS, or `%APPDATA%\claude-usage-tracker\config.json` on Windows. Diagnostic logs from electron-log live at `~/Library/Logs/claude-usage-tracker/main.log` on macOS, or `%USERPROFILE%\AppData\Local\claude-usage-tracker\logs\main.log` on Windows. Use **Reset all data** in Settings to clear the store; uninstalling on macOS does not automatically delete these files, so delete the paths above for a full wipe.
+
 ## Who Can Use This
 
 Each section of the widget has different account requirements:
@@ -19,9 +27,22 @@ Each section of the widget has different account requirements:
 - **Session & Weekly Gauges**: Real-time horizonal tick-mark indicators tracking utilization for `SESSION · 5H` and `WEEKLY · 7D` windows.
 - **Token Counters**: Monospace statistics showing `in` and `out` token summaries within a naive 5-hour window.
 - **Admin API Spend Tracking**: Displays monthly cost breakdown (`Total`, `Tokens`, and `Budget` utilization).
+- **Telegram Notifications**: Instantly alerts you via a Telegram bot when Claude limits refresh (both the 5-hour rolling window decay and surprise Anthropic-wide limit resets). Can also send a scheduled weekly usage summary (day and time configurable).
+- **Theme Selection**: Explicit custom 3-way segmented switch in Settings to force Light Mode, Dark Mode, or follow the System Preference.
 - **Settings Panel**: Configure organization Admin API key, monthly budget constraints, refresh intervals, login items, and verify OAuth credentials connection.
-- **Encrypted Local Storage**: The Admin API key is encrypted using Electron's `safeStorage` API before being persisted locally in `electron-store`.
+- **Encrypted Local Storage**: Sensitive keys (Admin API key and Telegram bot token) are encrypted using Electron's `safeStorage` API before being persisted locally in `electron-store`.
 - **System Tray Popover Design**: Resides strictly in the menu bar / system tray. Clicking the icon toggles a frameless, always-on-top window that hides automatically on losing focus (`blur`).
+
+---
+
+## Telegram Setup
+
+To receive notifications via Telegram:
+
+1. Chat with `@BotFather` on Telegram, type `/newbot`, and follow the steps to create a bot. Copy the **Bot Token** (`123456789:ABCdef...`).
+2. Open a chat with your new bot and send a message (e.g., "hello").
+3. Retrieve your **Chat ID** by visiting `https://api.telegram.org/bot<YOUR_TOKEN>/getUpdates` in your browser. Look for the `"chat":{"id":...}` field.
+4. Open Claude Usage Tracker settings, check **Enable Telegram notifications**, paste the Token and Chat ID, and click **Test Notification** to verify.
 
 ---
 
@@ -70,6 +91,60 @@ To package and compile standard installers (`.dmg` for macOS, `.exe` NSIS instal
 # Packages installers to the release/ directory
 npm run dist
 ```
+
+### Building a signed release
+
+macOS release builds use Developer ID signing and Apple notarization. Before the first signed release, replace the `YOUR_NAME` and `YOUR_TEAM_ID` placeholders in `build.mac.identity` in `package.json` with the exact name of the installed Developer ID Application certificate.
+
+Export these values from your Apple Developer account; do not add them to source control:
+
+```bash
+export APPLE_ID="your-apple-id@example.com"
+export APPLE_APP_SPECIFIC_PASSWORD="your-app-specific-password"
+export APPLE_TEAM_ID="YOUR_TEAM_ID"
+```
+
+With that certificate installed in your login keychain, build the signed and notarized release with:
+
+```bash
+npm run dist
+```
+
+#### Windows
+
+Windows release builds use a standard `.pfx` code-signing certificate (PKCS#12). Two certificate grades are available from certificate authorities such as DigiCert or Sectigo:
+
+| Type | SmartScreen reputation |
+|---|---|
+| **OV (Organization Validation)** | Reputation is built gradually — a new OV certificate will still trigger a SmartScreen warning until your installer accumulates enough download volume across users. |
+| **EV (Extended Validation)** | Reputation is granted immediately at issuance — SmartScreen warnings are bypassed from the first download. EV certificates require hardware-token verification and cost more. |
+
+electron-builder reads the certificate path and password from environment variables — **never hardcode these in source control**:
+
+| Variable | Description |
+|---|---|
+| `WIN_CSC_LINK` | Path to your `.pfx` file, or a base64-encoded string of the certificate (preferred for CI). |
+| `WIN_CSC_KEY_PASSWORD` | Password to decrypt the `.pfx`. |
+
+> **Tip — base64 encoding for CI secrets:** `base64 -i certificate.pfx` (macOS/Linux) or `[Convert]::ToBase64String([IO.File]::ReadAllBytes("certificate.pfx"))` (PowerShell).
+
+Export these before building (do not commit them):
+
+```bash
+export WIN_CSC_LINK="/path/to/certificate.pfx"
+export WIN_CSC_KEY_PASSWORD="your-pfx-password"
+```
+
+Then build the signed NSIS installer with:
+
+```bash
+npm run dist
+```
+
+> **SmartScreen "Windows protected your PC" — this is expected, not a bug.**
+> Even a validly signed installer will show a SmartScreen warning if the signing certificate is new or if download volume is low (common with OV certs). This is Microsoft's reputation system at work, not a build error. Users can click *More info → Run anyway* to proceed. The warning will disappear automatically as the installer accumulates download reputation. An EV certificate bypasses this immediately. An unsigned build will always show the warning with no *Run anyway* option.
+
+The normal `npm run build` command above remains unsigned and is intended for local development and CI checks that do not have signing credentials.
 
 ---
 

@@ -165,6 +165,74 @@ Summarize what was built, how to install it, and where the log file lives.
 
 ---
 
+## Deploy readiness — before sharing with others
+
+Based on an actual code audit (not guesswork) once the core app was built. Prompts 7-8 matter regardless of audience; 9-10 specifically matter because this is going to other people, not just you.
+
+## Prompt 7 — robustness and safety net
+
+```
+Harden main.ts for production use:
+- Add process-level process.on('uncaughtException', ...) and process.on('unhandledRejection', ...) handlers near the existing log.initialize() call, that log the full error via electron-log (log.error) before either recovering gracefully or, if truly unrecoverable, showing a native dialog (electron's dialog.showErrorBox) telling the user to check the log file — never crash silently with no trace.
+- Add validation on the Admin API key before it's saved: reject (with an inline error, not a silent failure) any value that doesn't match the expected sk-ant-admin-... prefix pattern, both in the renderer for immediate feedback and again in the main process save-settings handler as defense in depth.
+- Add a "Reset all data" action in Settings, separate from the existing "Remove API key," with a confirmation step, that clears every electron-store key (poll intervals, budget, launch-at-login flag, encrypted API key) and restarts polling from scratch.
+- Confirm this works by intentionally throwing inside a poll function temporarily and checking it's caught and logged instead of crashing the app.
+```
+
+## Prompt 8 — code signing and notarization
+
+```
+Set up macOS code signing and notarization in the electron-builder config (package.json build.mac block) so installs don't trigger Gatekeeper's "unidentified developer" warning for other users:
+- Add hardenedRuntime: true and an entitlements file (create one if missing) covering the app's actual needs (network access, Keychain access for the "security find-generic-password" fallback call).
+- Wire up identity and a notarize block that reads credentials from environment variables (APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID, or whatever electron-builder's current notarize API expects) rather than hardcoding anything — I'll supply real Apple Developer credentials as env vars when I run a signed build.
+- Add a "repository" field to package.json pointing at wherever I host this.
+- Document the exact env vars and build command for a signed, notarized dmg in a new README section, "Building a signed release," separate from the plain dev instructions.
+Don't attempt to actually sign/notarize yet since I don't have credentials configured here — just get the config and docs ready so it works the moment I add real credentials.
+```
+
+## Prompt 9 — auto-update
+
+```
+Add auto-update support using electron-updater, targeting GitHub Releases as the feed:
+- Install electron-updater, wire it into main.ts: check for updates on launch and periodically while running, download in the background, and prompt via a native dialog or in-popover banner when ready, letting the user choose "Restart now" or "Later."
+- Configure the "publish" block in package.json's electron-builder config for GitHub Releases (owner/repo as placeholders I'll fill in once the repo exists).
+- Update checks must fail silently (logged, not surfaced as an error) if there's no network or no repo configured yet, so this doesn't break the app for anyone building from source without a release feed.
+- Add a small, unobtrusive version number display in Settings (e.g. "v1.0.0") so people can see what they're running.
+```
+
+## Prompt 10 — trust and privacy documentation
+
+```
+Add a short, prominent "Privacy & data access" section near the top of README.md, in plain language for someone who's never seen the code:
+- What it reads: Claude Code's local OAuth token (file or Keychain), local JSONL session logs, and (only if added) an Anthropic Admin API key.
+- What it sends and where: only to api.anthropic.com, using the user's own credentials to read their own usage — never to any third-party server, never any telemetry or analytics.
+- Where data lives locally (electron-store config path, log file path) and how to fully remove it — reference the new "Reset all data" Settings action, and note that uninstalling the app on macOS does not automatically delete these files.
+Keep it factual and short, a few sentences per bullet — this is meant to be read by a stranger deciding whether to trust the app with their auth token before installing it, not a legal document.
+```
+
+## Prompt 11 — Windows code signing
+
+```
+Set up Windows code signing in the electron-builder config, mirroring how macOS signing was wired (credentials from environment variables, never hardcoded, and no actual signing attempted here since I don't have a certificate configured in this environment):
+- In package.json's build.win block, add certificateFile and certificatePassword (or the platform env-var convention electron-builder expects — CSC_LINK/CSC_KEY_PASSWORD or WIN_CSC_LINK/WIN_CSC_KEY_PASSWORD, check current electron-builder docs for the exact names) so a real .pfx certificate can be supplied via env vars at build time.
+- Add the "Building a signed release" README section's Windows equivalent, right next to the existing macOS instructions: what a Windows code signing certificate is (standard OV vs EV, and that EV gets instant SmartScreen reputation while OV builds it up over time with downloads), the exact env vars needed, and the exact build command.
+- Note in that README section, honestly, that an unsigned or newly-signed-but-low-reputation build will still show a Windows SmartScreen "Windows protected your PC" warning until enough people have run it, and that's expected, not a bug in the build.
+Acceptance check: run the existing unsigned Windows build (or confirm the win/nsis build still succeeds if you can only verify on this machine) and confirm the new config doesn't break it. Show me the diff to package.json and the README.
+```
+
+## Prompt 12 — clean-install / first-run verification pass
+
+```
+I need confidence this app behaves correctly for someone installing it fresh, with none of my local state (no Claude Code credentials cached, no electron-store config, no prior run). Do the following:
+- Identify every code path that assumes something exists on first run: the credentials file/Keychain lookup, the electron-store config (poll intervals, budget, launch-at-login default), the Admin API key (absent), and the Fable per-model discovery step. For each, confirm there's already a graceful empty/loading state (most of this should already exist from earlier prompts) — if any path would throw or show a raw error instead of a friendly message, fix it now.
+- Simulate a clean install: temporarily point electron-store and the credentials lookup at an empty temp directory (or clear your real local config/cache if you're comfortable doing that, since this is a dev environment), launch the app, and walk through what a brand-new user sees: tray icon state with no data yet, popover empty states for session/weekly/spend, first interaction with Settings.
+- Fix anything that looks broken, confusing, or crashes during that walkthrough.
+- Write a short TESTING.md (or a "Manual QA checklist" section in README) listing the exact steps to repeat this clean-install check before every future release — so this doesn't have to be rediscovered each time.
+Acceptance check: show me a screenshot (or describe exactly what renders) at each stage of the clean-install walkthrough, and confirm no errors appeared in the electron-log output during the whole run.
+```
+
+---
+
 ## Notes for you (not for Antigravity)
 
 - The session/weekly numbers this produces are Claude Code (CLI) usage specifically — same scope as your existing `CC_Usage_Monitor`. If you also want Claude.ai web chat visibility, there's still no public API for that; nothing in this guide changes that fact.

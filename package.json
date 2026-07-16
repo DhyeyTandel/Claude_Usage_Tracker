@@ -1,6 +1,6 @@
 {
   "name": "claude-usage-tracker",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Compact desktop widget showing Claude Code utilization and Anthropic API spend",
   "main": "dist-main/main.js",
   "scripts": {
@@ -12,9 +12,14 @@
   },
   "author": "Dhyey Tandel",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DhyeyTandel/Claude_Usage_Tracker.git"
+  },
   "dependencies": {
     "electron-log": "^5.1.0",
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.8.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
@@ -52,6 +57,7 @@
         ]
       },
       "category": "public.app-category.utilities",
+      "identity": null,
       "extendInfo": {
         "LSUIElement": true
       },
@@ -59,11 +65,20 @@
     },
     "win": {
       "target": "nsis",
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "certificateFile": "${env.WIN_CSC_LINK}",
+      "certificatePassword": "${env.WIN_CSC_KEY_PASSWORD}"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "YOUR_GITHUB_OWNER",
+        "repo": "YOUR_REPO_NAME"
+      }
+    ]
   }
 }

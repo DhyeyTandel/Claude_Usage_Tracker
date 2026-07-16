@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Electron's V8 runtime requires JIT under the hardened runtime. -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+
+  <!-- The app makes outgoing HTTPS requests to Anthropic APIs. -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+
+  <!--
+    This is a Developer ID (non-App-Store) build, so App Sandbox is intentionally
+    disabled. The macOS `security find-generic-password` fallback accesses an
+    existing Keychain item under that item's ACL; it does not use a shared
+    keychain access group. `keychain-access-groups` is deliberately omitted
+    because it is a restricted entitlement that requires a provisioning profile
+    and would not authorize access to the existing Claude Code credential.
+  -->
+</dict>
+</plist>

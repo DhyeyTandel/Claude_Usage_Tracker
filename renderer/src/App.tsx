@@ -6,6 +6,8 @@ import { StatusFooter } from './components/StatusFooter';
 
 // Cast global window to access Preload IPC API
 const electronAPI = (window as any).electronAPI;
+const ADMIN_API_KEY_PATTERN = /^sk-ant-admin-\S+$/;
+const ADMIN_API_KEY_ERROR = 'Admin API key must start with sk-ant-admin-.';
 
 // Helper to format token counts in IBM Plex Mono (e.g. 1.2k / 340)
 const formatTokens = (n: number): string => {
@@ -87,6 +89,8 @@ export default function App() {
   const [rateLimitPollInput, setRateLimitPollInput] = useState('');
   const [spendPollInput, setSpendPollInput] = useState('');
   const [launchAtLoginVal, setLaunchAtLoginVal] = useState(false);
+  const [appVersion, setAppVersion] = useState('');
+  const [themeVal, setThemeVal] = useState<'system' | 'light' | 'dark'>('system');
   
   // Settings error/testing states
   const [settingsErrors, setSettingsErrors] = useState<Record<string, string>>({});
@@ -96,24 +100,55 @@ export default function App() {
     error: null
   });
   const [confirmRemoveKey, setConfirmRemoveKey] = useState(false);
+  const [confirmResetAll, setConfirmResetAll] = useState(false);
+
+  // Telegram notification settings states
+  const [telegramEnabledVal, setTelegramEnabledVal] = useState(false);
+  const [telegramBotTokenVal, setTelegramBotTokenVal] = useState('');
+  const [showTelegramToken, setShowTelegramToken] = useState(false);
+  const [telegramChatIdVal, setTelegramChatIdVal] = useState('');
+  const [telegramNotifyRefreshVal, setTelegramNotifyRefreshVal] = useState(true);
+  const [telegramNotifyWeeklyVal, setTelegramNotifyWeeklyVal] = useState(true);
+  const [telegramWeeklyDayVal, setTelegramWeeklyDayVal] = useState(0);
+  const [telegramWeeklyHourVal, setTelegramWeeklyHourVal] = useState(9);
+  const [hasTelegramToken, setHasTelegramToken] = useState(false);
+  const [telegramTokenHint, setTelegramTokenHint] = useState('');
+  const [telegramTestResult, setTelegramTestResult] = useState<{ testing: boolean; success: boolean | null; error: string | null }>({
+    testing: false,
+    success: null,
+    error: null
+  });
 
   // Subscribe to Electron IPC data events
   useEffect(() => {
     const unsubUsage = electronAPI.onUsageUpdate((data: any) => {
-      setUsage(data);
+      if (data) setUsage(data);
     });
 
     const unsubTokens = electronAPI.onTokensUpdate((data: any) => {
-      setTokens(data);
+      if (data) setTokens(data);
     });
 
     const unsubSpend = electronAPI.onSpendUpdate((data: any) => {
-      setSpend(data);
+      if (data) setSpend(data);
     });
 
     const unsubConfig = electronAPI.onConfigStatusUpdate((data: any) => {
-      setConfigStatus(data);
+      if (data) setConfigStatus(data);
     });
+
+    // Load initial theme and settings
+    const initTheme = async () => {
+      try {
+        const config = await electronAPI.getSettings();
+        if (config && config.theme) {
+          applyTheme(config.theme);
+        }
+      } catch (err) {
+        console.error('Failed to load initial settings:', err);
+      }
+    };
+    initTheme();
 
     // Manual initial refresh
     handleRefreshAll();
@@ -149,18 +184,51 @@ export default function App() {
     setRefreshing(false);
   };
 
+  const applyTheme = (theme: 'system' | 'light' | 'dark') => {
+    if (theme === 'system') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+  };
+
+  const handleCancelSettings = async () => {
+    const config = await electronAPI.getSettings();
+    applyTheme(config.theme || 'system');
+    electronAPI.closeSettings();
+    setView('main');
+  };
+
   // Load configuration details when opening Settings view
   const handleOpenSettings = async () => {
     const config = await electronAPI.getSettings();
     setMonthlyBudgetInput(String(config.monthlyBudget));
     setRateLimitPollInput(String(config.pollIntervalRateLimit));
+    setRateLimitPollInput(String(config.pollIntervalRateLimit));
     setSpendPollInput(String(config.pollIntervalSpend));
     setLaunchAtLoginVal(config.launchAtLogin);
+    setThemeVal(config.theme || 'system');
+    setAppVersion(config.appVersion || '');
     setAdminApiKey('');
     setShowApiKey(false);
     setSettingsErrors({});
     setTestResult({ testing: false, success: null, error: null });
     setConfirmRemoveKey(false);
+    setConfirmResetAll(false);
+
+    // Load Telegram config
+    setTelegramEnabledVal(config.telegramEnabled || false);
+    setTelegramNotifyRefreshVal(config.telegramNotifyRefresh !== false);
+    setTelegramNotifyWeeklyVal(config.telegramNotifyWeekly !== false);
+    setTelegramWeeklyDayVal(config.telegramWeeklyDay ?? 0);
+    setTelegramWeeklyHourVal(config.telegramWeeklyHour ?? 9);
+    setTelegramChatIdVal(config.telegramChatId || '');
+    setTelegramBotTokenVal('');
+    setShowTelegramToken(false);
+    setHasTelegramToken(config.hasTelegramToken || false);
+    setTelegramTokenHint(config.telegramTokenHint || '');
+    setTelegramTestResult({ testing: false, success: null, error: null });
+
     setView('settings');
   };
 
@@ -183,6 +251,11 @@ export default function App() {
       errors.spend = 'Must be at least 60 seconds';
     }
 
+    const trimmedAdminApiKey = adminApiKey.trim();
+    if (trimmedAdminApiKey !== '' && !ADMIN_API_KEY_PATTERN.test(trimmedAdminApiKey)) {
+      errors.apiKey = ADMIN_API_KEY_ERROR;
+    }
+
     if (Object.keys(errors).length > 0) {
       setSettingsErrors(errors);
       return;
@@ -192,11 +265,23 @@ export default function App() {
       monthlyBudget: budgetNum,
       pollIntervalRateLimit: rateLimitNum,
       pollIntervalSpend: spendNum,
-      launchAtLogin: launchAtLoginVal
+      launchAtLogin: launchAtLoginVal,
+      theme: themeVal
     };
 
-    if (adminApiKey.trim() !== '') {
-      dataToSave.adminApiKey = adminApiKey.trim();
+    if (trimmedAdminApiKey !== '') {
+      dataToSave.adminApiKey = trimmedAdminApiKey;
+    }
+
+    // Telegram fields
+    dataToSave.telegramEnabled = telegramEnabledVal;
+    dataToSave.telegramNotifyRefresh = telegramNotifyRefreshVal;
+    dataToSave.telegramNotifyWeekly = telegramNotifyWeeklyVal;
+    dataToSave.telegramWeeklyDay = telegramWeeklyDayVal;
+    dataToSave.telegramWeeklyHour = telegramWeeklyHourVal;
+    dataToSave.telegramChatId = telegramChatIdVal;
+    if (telegramBotTokenVal.trim()) {
+      dataToSave.telegramBotToken = telegramBotTokenVal.trim();
     }
 
     const result = await electronAPI.saveSettings(dataToSave);
@@ -219,10 +304,47 @@ export default function App() {
     setConfigStatus({ ...configStatus, hasAdminKey: config.hasAdminKey });
   };
 
+  const handleResetAllData = async () => {
+    if (!confirmResetAll) {
+      setConfirmResetAll(true);
+      return;
+    }
+
+    const result = await electronAPI.resetAllData();
+    if (result && result.success === false) {
+      setSettingsErrors({ reset: result.error || 'Failed to reset application data.' });
+      return;
+    }
+
+    const config = await electronAPI.getSettings();
+    setMonthlyBudgetInput(String(config.monthlyBudget));
+    setRateLimitPollInput(String(config.pollIntervalRateLimit));
+    setSpendPollInput(String(config.pollIntervalSpend));
+    setLaunchAtLoginVal(config.launchAtLogin);
+    setThemeVal(config.theme || 'system');
+    applyTheme(config.theme || 'system');
+    setAdminApiKey('');
+    setShowApiKey(false);
+    setSettingsErrors({});
+    setConfirmRemoveKey(false);
+    setConfirmResetAll(false);
+    setConfigStatus({ oauthSource: config.oauthSource, hasAdminKey: config.hasAdminKey });
+  };
+
   const handleTestConnection = async () => {
     setTestResult({ testing: true, success: null, error: null });
     const res = await electronAPI.testConnection();
     setTestResult({
+      testing: false,
+      success: res.success,
+      error: res.error
+    });
+  };
+
+  const handleTestTelegram = async () => {
+    setTelegramTestResult({ testing: true, success: null, error: null });
+    const res = await electronAPI.testTelegram();
+    setTelegramTestResult({
       testing: false,
       success: res.success,
       error: res.error
@@ -285,7 +407,7 @@ export default function App() {
                 <div className={`flex flex-col ${isUsageStale ? 'opacity-40' : ''}`}>
                   <div className="my-1">
                     <span className="font-serif-fraunces text-[36px] tracking-tight leading-none">
-                      {Math.round(usage.session_pct * 100)}%
+                      {Math.min(100, Math.round(usage.session_pct * 100))}%
                     </span>
                   </div>
                   
@@ -297,10 +419,16 @@ export default function App() {
                     />
                   </div>
                   
-                  <div className="flex justify-between items-center font-mono-plex text-[9px] text-[var(--text-dim)] mt-0.5">
-                    <span>in {formatTokens(tokens.session_input)}</span>
-                    <span>out {formatTokens(tokens.session_output)}</span>
-                  </div>
+                  {tokens.last_activity && (Date.now() - tokens.last_activity) < 5 * 60 * 60 * 1000 ? (
+                    <div className="flex justify-between items-center font-mono-plex text-[9px] text-[var(--text-dim)] mt-0.5">
+                      <span>in {formatTokens(tokens.session_input)}</span>
+                      <span>out {formatTokens(tokens.session_output)}</span>
+                    </div>
+                  ) : (
+                    <div className="font-sans-plex text-[9px] text-[var(--text-dim)] italic mt-0.5">
+                      No Claude Code CLI activity in this window — session % above includes claude.ai and API usage too.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -434,7 +562,19 @@ export default function App() {
                     <input 
                       type={showApiKey ? 'text' : 'password'}
                       value={adminApiKey}
-                      onChange={(e) => setAdminApiKey(e.target.value)}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setAdminApiKey(value);
+                        setSettingsErrors((currentErrors) => {
+                          const nextErrors = { ...currentErrors };
+                          if (value.trim() !== '' && !ADMIN_API_KEY_PATTERN.test(value.trim())) {
+                            nextErrors.apiKey = ADMIN_API_KEY_ERROR;
+                          } else {
+                            delete nextErrors.apiKey;
+                          }
+                          return nextErrors;
+                        });
+                      }}
                       placeholder={configStatus.hasAdminKey ? '••••••••••••••••••••' : 'sk-ant-admin...'}
                       className="w-full text-xs font-mono-plex bg-[var(--bg-secondary)] border border-hairline-all rounded px-2 py-1 text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-color)]"
                     />
@@ -502,6 +642,156 @@ export default function App() {
               </div>
             </div>
 
+            {/* Telegram Notifications section */}
+            <div className="mb-4 pt-2 border-t border-hairline-t">
+              <div className="text-[9px] font-sans-plex font-bold tracking-widest text-[var(--text-dim)] uppercase mb-2">
+                Telegram Notifications
+              </div>
+
+              <div className="flex flex-col space-y-2.5">
+                {/* Enable toggle */}
+                <div className="flex items-center space-x-2 py-0.5">
+                  <input
+                    type="checkbox"
+                    id="telegramEnabled"
+                    checked={telegramEnabledVal}
+                    onChange={(e) => setTelegramEnabledVal(e.target.checked)}
+                    className="w-3 h-3 accent-[var(--accent-color)]"
+                  />
+                  <label htmlFor="telegramEnabled" className="text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium select-none cursor-pointer">
+                    Enable Telegram notifications
+                  </label>
+                </div>
+
+                {telegramEnabledVal && (
+                  <>
+                    {/* Bot Token */}
+                    <div>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium">Bot Token</label>
+                      </div>
+                      <div className="relative">
+                        <input
+                          type={showTelegramToken ? 'text' : 'password'}
+                          value={telegramBotTokenVal}
+                          onChange={(e) => setTelegramBotTokenVal(e.target.value)}
+                          placeholder={hasTelegramToken ? telegramTokenHint : 'Paste token from @BotFather'}
+                          className="w-full text-xs font-mono-plex bg-[var(--bg-secondary)] border border-hairline-all rounded px-2 py-1 text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-color)]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowTelegramToken(!showTelegramToken)}
+                          className="absolute right-2 top-1.5 text-[9px] font-sans-plex text-[var(--text-dim)] hover:text-[var(--text-secondary)]"
+                        >
+                          {showTelegramToken ? 'Hide' : 'Show'}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Chat ID */}
+                    <div>
+                      <label className="block text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium mb-1">Chat ID</label>
+                      <input
+                        type="text"
+                        value={telegramChatIdVal}
+                        onChange={(e) => setTelegramChatIdVal(e.target.value)}
+                        placeholder="e.g. 123456789"
+                        className="w-full text-xs font-mono-plex bg-[var(--bg-secondary)] border border-hairline-all rounded px-2 py-1 text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-color)]"
+                      />
+                    </div>
+
+                    {/* Test button */}
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={handleTestTelegram}
+                        disabled={telegramTestResult.testing}
+                        className="text-[9px] font-sans-plex font-bold uppercase tracking-wider text-[var(--text-primary)] border border-hairline-all hover:bg-[var(--bg-secondary)] px-2.5 py-0.5 rounded-sm transition-colors"
+                      >
+                        {telegramTestResult.testing ? 'Sending...' : 'Test Notification'}
+                      </button>
+                      {telegramTestResult.success !== null && (
+                        <span className={`text-[10px] font-sans-plex font-semibold ${telegramTestResult.success ? 'text-emerald-500' : 'text-rose-500'}`}>
+                          {telegramTestResult.success ? 'Sent ✓' : `Fail: ${telegramTestResult.error}`}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Notification type toggles */}
+                    <div className="border-t border-hairline-t pt-2 mt-1">
+                      <div className="flex items-center space-x-2 py-0.5">
+                        <input
+                          type="checkbox"
+                          id="notifyRefresh"
+                          checked={telegramNotifyRefreshVal}
+                          onChange={(e) => setTelegramNotifyRefreshVal(e.target.checked)}
+                          className="w-3 h-3 accent-[var(--accent-color)]"
+                        />
+                        <label htmlFor="notifyRefresh" className="text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium select-none cursor-pointer">
+                          Notify on limit refresh
+                        </label>
+                      </div>
+
+                      <div className="flex items-center space-x-2 py-0.5 mt-1">
+                        <input
+                          type="checkbox"
+                          id="notifyWeekly"
+                          checked={telegramNotifyWeeklyVal}
+                          onChange={(e) => setTelegramNotifyWeeklyVal(e.target.checked)}
+                          className="w-3 h-3 accent-[var(--accent-color)]"
+                        />
+                        <label htmlFor="notifyWeekly" className="text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium select-none cursor-pointer">
+                          Weekly usage summary
+                        </label>
+                      </div>
+                    </div>
+
+                    {/* Weekly schedule selectors */}
+                    {telegramNotifyWeeklyVal && (
+                      <div className="flex gap-3 mt-1">
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium mb-1">Summary day</label>
+                          <select
+                            value={telegramWeeklyDayVal}
+                            onChange={(e) => setTelegramWeeklyDayVal(parseInt(e.target.value, 10))}
+                            className="w-full text-xs font-mono-plex bg-[var(--bg-secondary)] border border-hairline-all rounded px-2 py-1 text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-color)]"
+                          >
+                            <option value={0}>Sunday</option>
+                            <option value={1}>Monday</option>
+                            <option value={2}>Tuesday</option>
+                            <option value={3}>Wednesday</option>
+                            <option value={4}>Thursday</option>
+                            <option value={5}>Friday</option>
+                            <option value={6}>Saturday</option>
+                          </select>
+                        </div>
+                        <div className="flex-1">
+                          <label className="block text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium mb-1">Summary hour</label>
+                          <select
+                            value={telegramWeeklyHourVal}
+                            onChange={(e) => setTelegramWeeklyHourVal(parseInt(e.target.value, 10))}
+                            className="w-full text-xs font-mono-plex bg-[var(--bg-secondary)] border border-hairline-all rounded px-2 py-1 text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-color)]"
+                          >
+                            {Array.from({ length: 24 }, (_, i) => (
+                              <option key={i} value={i}>
+                                {String(i).padStart(2, '0')}:00
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Helper text */}
+                    <div className="text-[8px] font-sans-plex text-[var(--text-dim)] leading-relaxed mt-1">
+                      Create a bot via @BotFather on Telegram. Then message your bot and visit
+                      {' '}<span className="font-mono-plex">api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</span>{' '}
+                      to find your Chat ID.
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
             {/* General Settings Section */}
             <div className="mb-4 pt-2 border-t border-hairline-t">
               <div className="text-[9px] font-sans-plex font-bold tracking-widest text-[var(--text-dim)] uppercase mb-2">
@@ -509,6 +799,30 @@ export default function App() {
               </div>
               
               <div className="flex flex-col space-y-2.5">
+                {/* Theme Selector Segmented Switch */}
+                <div>
+                  <label className="block text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium mb-1.5">Theme</label>
+                  <div className="flex border border-hairline-all rounded bg-[var(--bg-secondary)] p-0.5 w-full select-none">
+                    {(['system', 'light', 'dark'] as const).map((t) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => {
+                          setThemeVal(t);
+                          applyTheme(t);
+                        }}
+                        className={`flex-1 text-[9px] font-sans-plex font-bold uppercase tracking-wider py-1 rounded transition-all focus:outline-none ${
+                          themeVal === t
+                            ? 'bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-sm'
+                            : 'text-[var(--text-dim)] hover:text-[var(--text-secondary)]'
+                        }`}
+                      >
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium mb-1">Rate-Limit Poll Interval (sec)</label>
                   <input 
@@ -563,17 +877,48 @@ export default function App() {
                     Launch app at login
                   </label>
                 </div>
+
+                <div className="pt-2 border-t border-hairline-t">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] font-sans-plex text-[var(--text-secondary)] font-medium">Reset all data</div>
+                      <div className="text-[9px] font-sans-plex text-[var(--text-dim)] mt-0.5">Clears every saved setting and restarts polling.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleResetAllData}
+                      className="shrink-0 text-[9px] font-sans-plex font-bold uppercase tracking-wider text-rose-500 border border-rose-500/40 hover:bg-rose-500/10 px-2 py-1 rounded-sm transition-colors"
+                    >
+                      {confirmResetAll ? 'Confirm Reset' : 'Reset All Data'}
+                    </button>
+                  </div>
+                  {confirmResetAll && (
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="text-[9px] font-sans-plex text-rose-500">This removes the saved API key too.</span>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmResetAll(false)}
+                        className="text-[9px] font-sans-plex text-[var(--text-dim)] hover:text-[var(--text-secondary)]"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                  {settingsErrors.reset && (
+                    <span className="text-[9px] font-sans-plex text-rose-500 mt-0.5">{settingsErrors.reset}</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Settings cancel button */}
-          <div className="pt-2 border-t border-hairline-t flex justify-end">
+          {/* Settings cancel button + version */}
+          <div className="pt-2 border-t border-hairline-t flex justify-between items-center">
+            <span className="text-[9px] font-mono-plex text-[var(--text-dim)]">
+              {appVersion ? `v${appVersion}` : ''}
+            </span>
             <button 
-              onClick={() => {
-                electronAPI.closeSettings();
-                setView('main');
-              }}
+              onClick={handleCancelSettings}
               className="text-[10px] font-sans-plex font-bold text-[var(--text-dim)] uppercase tracking-wider hover:text-[var(--text-secondary)] py-1"
             >
               Cancel

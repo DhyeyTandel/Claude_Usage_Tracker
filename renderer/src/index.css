@@ -39,7 +39,7 @@
 /* ── Design System Variables ────────────────────────────────────────────────── */
 
 :root {
-  /* Light mode (primary palette) */
+  /* Light mode (primary palette — default) */
   --bg-primary: #FBF9F4;        /* Warm paper */
   --bg-secondary: #EFE7D8;      /* Secondary beige surface */
   --bg-track: #F4EEE0;          /* Lighter beige variant for gauge track */
@@ -55,23 +55,51 @@
   --status-hard-limit: #B54A3F; /* Muted brick red */
 }
 
+/* System dark mode (when theme = 'system' or unset) */
 @media (prefers-color-scheme: dark) {
-  :root {
-    /* Dark mode (secondary palette) */
-    --bg-primary: #151412;        /* Near-black paper */
-    --bg-secondary: #2C2A26;      /* Muted warm grey */
-    --bg-track: #23221F;          /* Darker track */
-    --border-hairline: #33312C;   /* Dark hairline */
-    --text-primary: #F3EFE7;      /* Warm paper white */
-    --text-secondary: #AAA498;    /* Muted secondary */
-    --text-dim: #7C7768;          /* Desaturated muted */
-    --accent-color: #A85C3A;      /* Terracotta remains same */
-    
-    /* Semantic desaturated status colors (slightly adjusted for dark mode contrast) */
+  :root:not([data-theme="light"]) {
+    --bg-primary: #151412;
+    --bg-secondary: #2C2A26;
+    --bg-track: #23221F;
+    --border-hairline: #33312C;
+    --text-primary: #F3EFE7;
+    --text-secondary: #AAA498;
+    --text-dim: #7C7768;
+    --accent-color: #A85C3A;
     --status-allowed: #7AA36C;
     --status-soft-limit: #D09E51;
     --status-hard-limit: #C65C51;
   }
+}
+
+/* Explicit dark mode override (when user selects "Dark") */
+:root[data-theme="dark"] {
+  --bg-primary: #151412;
+  --bg-secondary: #2C2A26;
+  --bg-track: #23221F;
+  --border-hairline: #33312C;
+  --text-primary: #F3EFE7;
+  --text-secondary: #AAA498;
+  --text-dim: #7C7768;
+  --accent-color: #A85C3A;
+  --status-allowed: #7AA36C;
+  --status-soft-limit: #D09E51;
+  --status-hard-limit: #C65C51;
+}
+
+/* Explicit light mode override (when user selects "Light") */
+:root[data-theme="light"] {
+  --bg-primary: #FBF9F4;
+  --bg-secondary: #EFE7D8;
+  --bg-track: #F4EEE0;
+  --border-hairline: #E9E4D8;
+  --text-primary: #2B2A26;
+  --text-secondary: #5C5748;
+  --text-dim: #8A8478;
+  --accent-color: #A85C3A;
+  --status-allowed: #6B8F5E;
+  --status-soft-limit: #C08A3E;
+  --status-hard-limit: #B54A3F;
 }
 
 body {
