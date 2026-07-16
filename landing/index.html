@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Usage Tracker — Dhyey Tandel</title>
+  <style>
+    /* ── Import Google Fonts ── */
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&family=Sofia+Sans:wght@450;600&display=swap');
+
+    /* ── Custom Design System Tokens ── */
+    :root {
+      --paper: #F4F0E9;
+      --paper-lift: #FCFAF7;
+      --ink: #17140F;
+      --body: #4B443A;
+      --muted: #7C7367;
+      --hairline: #E6DFD2;
+      --orange: #EE5308;
+      --blurple: #5B4DF2;
+      --magenta: #DE3D9E;
+      
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-swift: cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    /* ── Global Resets & Basics ── */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--paper);
+      color: var(--body);
+      font-family: 'Sofia Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-weight: 450;
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Typography Styling ── */
+    .font-serif {
+      font-family: 'Newsreader', Georgia, serif;
+      font-weight: 300;
+      letter-spacing: -0.02em;
+    }
+    
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    em {
+      font-family: 'Newsreader', Georgia, serif;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--orange);
+      font-style: italic;
+    }
+
+    strong {
+      color: var(--ink);
+      font-weight: 600;
+    }
+
+    /* ── Layout & Structure ── */
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 0 40px;
+    }
+
+    header {
+      padding: 32px 0;
+      border-bottom: 1px solid var(--hairline);
+      position: relative;
+      z-index: 10;
+    }
+
+    .nav-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .wordmark {
+      font-size: 21px;
+      font-weight: 400;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    /* ── Hero Section with Glow Atmosphere ── */
+    .hero-section {
+      padding: 96px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-inner {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 64px;
+      align-items: center;
+    }
+
+    /* Background atmospheric orbs */
+    .glow-orb {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 1;
+      filter: blur(140px);
+      opacity: 0.07;
+    }
+    .orb-orange {
+      background: var(--orange);
+      top: -10%;
+      left: 10%;
+    }
+    .orb-blurple {
+      background: var(--blurple);
+      bottom: 10%;
+      right: -10%;
+    }
+
+    /* Ghost Watermark Text */
+    .ghost-watermark {
+      position: absolute;
+      font-family: 'Newsreader', Georgia, serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: 20vw;
+      color: rgba(230, 223, 210, 0.25);
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 0;
+      user-select: none;
+      left: -5%;
+      bottom: -5%;
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Eyebrow pattern: Dot + label */
+    .eyebrow-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 24px;
+    }
+    .eyebrow-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--orange);
+      display: inline-block;
+    }
+
+    .hero-title {
+      font-size: 52px;
+      line-height: 1.15;
+      color: var(--ink);
+      margin-bottom: 24px;
+    }
+
+    .hero-body {
+      font-size: 17px;
+      color: var(--body);
+      margin-bottom: 36px;
+      max-width: 480px;
+    }
+
+    /* Pill Buttons with custom motion */
+    .btn-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      background-color: var(--ink);
+      color: var(--paper);
+      padding: 14px 32px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+      transition: transform 0.2s var(--ease-spring), background-color 0.2s var(--ease-swift), box-shadow 0.2s var(--ease-swift);
+      box-shadow: 0 4px 20px rgba(23, 20, 15, 0.05);
+      border: none;
+      cursor: pointer;
+    }
+    .btn-pill:hover {
+      background-color: var(--orange);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px rgba(238, 83, 8, 0.15);
+    }
+    .btn-pill:active {
+      transform: scale(0.97);
+    }
+
+    .btn-secondary {
+      background-color: transparent;
+      color: var(--ink);
+      border: 1px solid var(--hairline);
+      box-shadow: none;
+      margin-left: 12px;
+    }
+    .btn-secondary:hover {
+      background-color: var(--paper-lift);
+      color: var(--ink);
+      border-color: var(--ink);
+      box-shadow: 0 10px 20px rgba(23, 20, 15, 0.03);
+    }
+
+    /* ── Mock App Widget Component ── */
+    .mock-widget-container {
+      display: flex;
+      justify-content: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .widget-shadow-box {
+      width: 340px;
+      background-color: #151412; /* Dark theme default */
+      border: 1px solid #33312C;
+      border-radius: 4px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
+      padding: 14px 16px;
+      color: #F3EFE7;
+      text-align: left;
+    }
+
+    /* Inner widget styling matching the actual app */
+    .widget-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 0.5px solid #33312C;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
+    }
+    .widget-header span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+    }
+    .widget-badge {
+      font-size: 9px;
+      background-color: #2C2A26;
+      color: #AAA498;
+      padding: 2px 6px;
+      border-radius: 2px;
+    }
+
+    .widget-section {
+      margin-bottom: 16px;
+    }
+    .widget-row-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: #7C7768;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 6px;
+    }
+    .widget-percent {
+      font-family: 'Fraunces', serif;
+      font-size: 36px;
+      font-weight: 300;
+      color: #F3EFE7;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .widget-gauge-track {
+      height: 5.5px;
+      background-color: #23221F;
+      width: 100%;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 6px;
+    }
+    .widget-gauge-fill {
+      height: 100%;
+      background-color: var(--orange);
+      width: 100%; /* Mocking rate limited 100% */
+      animation: pulse-warn 2s infinite ease-in-out;
+    }
+    @keyframes pulse-warn {
+      0%, 100% { opacity: 0.9; }
+      50% { opacity: 0.5; }
+    }
+    .widget-row-subtext {
+      font-size: 9px;
+      color: #7C7768;
+      display: flex;
+      justify-content: space-between;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .widget-weekly-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      margin-bottom: 8px;
+    }
+    .widget-weekly-fill-bar {
+      width: 80px;
+      height: 4px;
+      background-color: #23221F;
+      position: relative;
+      border-radius: 2px;
+    }
+    .widget-weekly-fill {
+      height: 100%;
+      background-color: #7AA36C;
+      border-radius: 2px;
+    }
+
+    .widget-divider {
+      border-top: 0.5px solid #33312C;
+      margin: 12px 0;
+    }
+
+    .widget-section-spend {
+      margin-bottom: 10px;
+    }
+
+    .widget-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      color: #7C7768;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .widget-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: #C65C51; /* Hard limit red */
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    /* ── Features Grid (Square Cards, Hairlines) ── */
+    .features-section {
+      padding: 96px 0;
+      border-top: 1px solid var(--hairline);
+      background-color: var(--paper-lift);
+    }
+
+    .section-stack {
+      max-width: 600px;
+      margin-bottom: 64px;
+    }
+
+    .section-title {
+      font-size: 38px;
+      color: var(--ink);
+      margin-top: 12px;
+      margin-bottom: 16px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+
+    .card-square {
+      background-color: #FFFFFF;
+      border: 1px solid var(--hairline);
+      border-radius: 4px;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-swift);
+    }
+    .card-square:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 35px rgba(23, 20, 15, 0.03);
+      border-color: var(--ink);
+    }
+
+    .card-icon {
+      font-size: 24px;
+      margin-bottom: 24px;
+      color: var(--orange);
+    }
+
+    .card-title {
+      font-size: 20px;
+      color: var(--ink);
+      margin-bottom: 12px;
+      font-weight: 400;
+    }
+
+    .card-body {
+      font-size: 14.5px;
+      color: var(--body);
+    }
+
+    /* ── Setup & Guide Section ── */
+    .guide-section {
+      padding: 96px 0;
+      border-top: 1px solid var(--hairline);
+    }
+
+    .guide-split {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 80px;
+    }
+
+    .step-list {
+      display: flex;
+      flex-direction: column;
+      gap: 32px;
+    }
+
+    .step-item {
+      display: flex;
+      gap: 20px;
+    }
+
+    .step-number {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px;
+      color: var(--orange);
+      font-weight: 600;
+      width: 28px;
+      height: 28px;
+      border: 1.5px solid var(--orange);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-title {
+      font-size: 18px;
+      color: var(--ink);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .step-desc {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    /* ── Dark Band Footer ── */
+    footer {
+      background-color: var(--ink);
+      color: #F3EFE7;
+      padding: 80px 0 48px 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid #33312C;
+      padding-bottom: 48px;
+      margin-bottom: 32px;
+    }
+
+    .footer-brand h2 {
+      font-size: 28px;
+      color: #F3EFE7;
+      font-weight: 300;
+      margin-bottom: 12px;
+    }
+
+    .footer-brand p {
+      color: #AAA498;
+      font-size: 14px;
+      max-width: 320px;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 64px;
+    }
+
+    .footer-link-col h4 {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: #7C7768;
+      letter-spacing: 0.14em;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+
+    .footer-links a {
+      color: #AAA498;
+      font-size: 14px;
+      text-decoration: none;
+      display: block;
+      margin-bottom: 10px;
+      transition: color 0.2s var(--ease-swift);
+    }
+    .footer-links a:hover {
+      color: var(--orange);
+    }
+
+    .footer-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #7C7768;
+    }
+
+    .footer-meta span {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── Responsive Styling ── */
+    @media (max-width: 992px) {
+      .hero-inner {
+        grid-template-columns: 1fr;
+        gap: 48px;
+        text-align: center;
+      }
+      .hero-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .eyebrow-container {
+        justify-content: center;
+      }
+      .hero-body {
+        max-width: 100%;
+      }
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+      .guide-split {
+        grid-template-columns: 1fr;
+        gap: 48px;
+      }
+      .footer-inner {
+        flex-direction: column;
+        gap: 48px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Navigation ── -->
+  <header>
+    <div class="container nav-inner">
+      <a href="#" class="wordmark font-serif">Dhyey Tandel</a>
+      <a href="Claude-Usage-Tracker-1.1.0-arm64.dmg" class="btn-pill" download>
+        Download v1.1.0
+      </a>
+    </div>
+  </header>
+
+  <!-- ── Hero Section ── -->
+  <section class="hero-section">
+    <div class="glow-orb orb-orange"></div>
+    <div class="glow-orb orb-blurple"></div>
+    <div class="ghost-watermark">Claude Code</div>
+    
+    <div class="container hero-inner">
+      <div class="hero-content">
+        <div class="eyebrow-container">
+          <span class="eyebrow-dot"></span>
+          <span class="font-mono" style="color: var(--muted);">utility · macOS</span>
+        </div>
+        <h1 class="hero-title font-serif">
+          A desktop widget to track your <em>Claude Code</em> usage.
+        </h1>
+        <p class="hero-body">
+          Built because I wanted it to exist. Keep tabs on <strong>5-hour session resets</strong>, weekly rate limits, and monthly <strong>Anthropic API costs</strong> right in your system menu bar.
+        </p>
+        <div>
+          <a href="Claude-Usage-Tracker-1.1.0-arm64.dmg" class="btn-pill" download>
+            Download for Mac (arm64) →
+          </a>
+          <a href="https://github.com/DhyeyTandel/Claude_Usage_Tracker" class="btn-pill btn-secondary" target="_blank">
+            Source Code ↗
+          </a>
+        </div>
+      </div>
+      
+      <div class="mock-widget-container">
+        <!-- Exact Mockup of Claude Usage Tracker Widget -->
+        <div class="widget-shadow-box">
+          <div class="widget-header">
+            <span>CLAUDE USAGE</span>
+            <span class="widget-badge">PRO</span>
+          </div>
+          
+          <div class="widget-section">
+            <div class="widget-row-label">
+              <span>SESSION · 5H</span>
+              <span style="color: #C65C51;">REJECTED · RESETS IN 1H 36M</span>
+            </div>
+            <div class="widget-percent">100%</div>
+            <div class="widget-gauge-track">
+              <div class="widget-gauge-fill"></div>
+            </div>
+            <div class="widget-row-subtext">
+              <span>in 45.2k</span>
+              <span>out 12.8k</span>
+            </div>
+          </div>
+          
+          <div class="widget-divider"></div>
+          
+          <div class="widget-section">
+            <div class="widget-row-label" style="margin-bottom: 8px;">
+              <span>WEEKLY LIMITS</span>
+            </div>
+            <div class="widget-weekly-row">
+              <span style="font-size: 10px; color: #AAA498;">All models</span>
+              <div class="widget-weekly-fill-bar">
+                <div class="widget-weekly-fill" style="width: 9%;"></div>
+              </div>
+            </div>
+            <div class="widget-weekly-row">
+              <span style="font-size: 10px; color: #AAA498;">Fable</span>
+              <div class="widget-weekly-fill-bar">
+                <div class="widget-weekly-fill" style="width: 17%;"></div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="widget-divider"></div>
+          
+          <div class="widget-section widget-section-spend">
+            <div class="widget-row-label" style="margin-bottom: 8px;">
+              <span>SPEND · THIS MONTH</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 4px;">
+              <span style="color: #AAA498;">Total</span>
+              <span style="font-weight: 600; color: #F3EFE7;">$14.52</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 11px;">
+              <span style="color: #AAA498;">Budget</span>
+              <span style="color: #AAA498;">14.5%</span>
+            </div>
+          </div>
+          
+          <div class="widget-divider"></div>
+          
+          <div class="widget-footer">
+            <div>
+              <span class="widget-status-dot"></span>
+              <span>HARD LIMITED · UPDATED JUST NOW</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Features Section ── -->
+  <section class="features-section">
+    <div class="container">
+      <div class="section-stack">
+        <div class="eyebrow-container">
+          <span class="eyebrow-dot"></span>
+          <span class="font-mono">specifications</span>
+        </div>
+        <h2 class="section-title font-serif">
+          Ink does the work. Signal does the talking.
+        </h2>
+      </div>
+      
+      <div class="features-grid">
+        <!-- Feature 1 -->
+        <div class="card-square">
+          <div class="card-icon">🔔</div>
+          <div>
+            <h3 class="card-title font-serif">Telegram bot notifications</h3>
+            <p class="card-body">
+              Get notified immediately when Anthropic refreshes your limits. Sends alerts for natural <strong>5-hour window decays</strong> and scheduled <strong>weekly digests</strong>.
+            </p>
+          </div>
+        </div>
+        <!-- Feature 2 -->
+        <div class="card-square">
+          <div class="card-icon">⚡</div>
+          <div>
+            <h3 class="card-title font-serif">Surprise reset detection</h3>
+            <p class="card-body">
+              Anthropic occasionally refreshes limits for everyone unexpectedly. The background tracker detects the drop and alerts you so you can <strong>resume building</strong>.
+            </p>
+          </div>
+        </div>
+        <!-- Feature 3 -->
+        <div class="card-square">
+          <div class="card-icon">🎨</div>
+          <div>
+            <h3 class="card-title font-serif">Tactile theme switch</h3>
+            <p class="card-body">
+              Comes with an explicit custom 3-way segmented control in Settings. Instantly toggle between <strong>Light</strong>, <strong>Dark</strong>, or match your <strong>System</strong> preferences.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Setup Guide Section ── -->
+  <section class="guide-section">
+    <div class="container guide-split">
+      <div>
+        <div class="eyebrow-container">
+          <span class="eyebrow-dot"></span>
+          <span class="font-mono">quick start</span>
+        </div>
+        <h2 class="section-title font-serif" style="max-width: 440px;">
+          Set up Telegram notifications in <em>three minutes</em>.
+        </h2>
+        <p style="color: var(--muted); margin-bottom: 32px; max-width: 400px;">
+          The app encrypts your Admin API key and Telegram bot credentials using macOS Keychain/OS-level <strong>safeStorage</strong> before local persistence.
+        </p>
+        <a href="https://github.com/DhyeyTandel/Claude_Usage_Tracker#telegram-setup" class="btn-pill btn-secondary" target="_blank" style="margin-left: 0;">
+          Read Full Documentation ↗
+        </a>
+      </div>
+      
+      <div class="step-list">
+        <div class="step-item">
+          <div class="step-number">1</div>
+          <div>
+            <h3 class="step-title">Message @BotFather</h3>
+            <p class="step-desc">
+              Search for `@BotFather` on Telegram, send `/newbot`, and follow prompts to obtain your bot token.
+            </p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-number">2</div>
+          <div>
+            <h3 class="step-title">Get Chat ID</h3>
+            <p class="step-desc">
+              Message your new bot, then visit `https://api.telegram.org/bot<TOKEN>/getUpdates` to retrieve your Chat ID.
+            </p>
+          </div>
+        </div>
+        <div class="step-item">
+          <div class="step-number">3</div>
+          <div>
+            <h3 class="step-title">Save in Widget</h3>
+            <p class="step-desc">
+              Open the widget settings, enable Telegram notifications, paste credentials, and trigger a test message.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Footer ── -->
+  <footer>
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <h2 class="font-serif">Dhyey Tandel</h2>
+        <p>B.Tech CS student at MIT Manipal '27 building fintech, distributed systems, and local developer tooling.</p>
+      </div>
+      
+      <div class="footer-links">
+        <div class="footer-link-col">
+          <h4>Projects</h4>
+          <a href="#" target="_blank">QuantArena</a>
+          <a href="#" target="_blank">FluxMQ</a>
+          <a href="#" target="_blank">MiniNet</a>
+        </div>
+        <div class="footer-link-col">
+          <h4>Social</h4>
+          <a href="https://github.com/DhyeyTandel" target="_blank">GitHub</a>
+          <a href="#" target="_blank">LinkedIn</a>
+          <a href="#" target="_blank">Twitter</a>
+        </div>
+      </div>
+    </div>
+    
+    <div class="container footer-meta">
+      <span>Built because I wanted it to exist.</span>
+      <span>&copy; 2026 Dhyey Tandel. All rights reserved.</span>
+    </div>
+  </footer>
+
+</body>
+</html>
