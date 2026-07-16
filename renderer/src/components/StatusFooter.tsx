@@ -45,7 +45,7 @@ export const StatusFooter: React.FC<StatusFooterProps> = ({
   let dotStyle = { backgroundColor: 'var(--text-dim)' }; // Fallback gray
   if (status === 'allowed') {
     dotStyle = { backgroundColor: 'var(--status-allowed)' };
-  } else if (status === 'soft_limited') {
+  } else if (status === 'soft_limited' || status === 'allowed_warning') {
     dotStyle = { backgroundColor: 'var(--status-soft-limit)' };
   } else if (status === 'hard_limited') {
     dotStyle = { backgroundColor: 'var(--status-hard-limit)' };

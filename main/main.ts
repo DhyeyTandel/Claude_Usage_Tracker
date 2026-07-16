@@ -378,12 +378,10 @@ function updateTrayIcon(pctVal: number, statusStr: string, hasError: boolean) {
 
   let statusPrefix = 'disconnected';
   if (!hasError) {
-    // When utilization >= 100%, force hard-limited status for the tray icon
-    // regardless of what the API header says — the user is rate limited.
     if (pctVal >= 1.0) {
       statusPrefix = 'hard';
     } else if (statusStr === 'allowed') statusPrefix = 'allowed';
-    else if (statusStr === 'soft_limited') statusPrefix = 'soft';
+    else if (statusStr === 'soft_limited' || statusStr === 'allowed_warning') statusPrefix = 'soft';
     else if (statusStr === 'hard_limited') statusPrefix = 'hard';
   }
 
@@ -1133,8 +1131,9 @@ function getPopoverPosition(): { x: number; y: number } {
   
   const windowBounds = mainWindow.getBounds();
   const trayBounds = tray.getBounds();
-  // Find the display matching the tray bounds to support external displays correctly
-  const activeDisplay = screen.getDisplayMatching(trayBounds);
+  // Find the display nearest to the cursor to support external displays and fullscreen spaces correctly
+  const cursorPoint = screen.getCursorScreenPoint();
+  const activeDisplay = screen.getDisplayNearestPoint(cursorPoint);
   const displayBounds = activeDisplay.workArea;
 
   // Width and height of our popover window
@@ -1172,6 +1171,13 @@ function toggleWindow() {
   } else {
     const { x, y } = getPopoverPosition();
     mainWindow.setPosition(x, y, false);
+    
+    // Call setVisibleOnAllWorkspaces right before show to force it onto the active fullscreen Space
+    mainWindow.setVisibleOnAllWorkspaces(true, {
+      visibleOnFullScreen: true,
+      skipTransformProcessType: false
+    });
+    
     mainWindow.show();
     mainWindow.focus();
   }
@@ -1205,7 +1211,7 @@ function createMainWindow() {
   mainWindow.setAlwaysOnTop(true, 'screen-saver');
   mainWindow.setVisibleOnAllWorkspaces(true, {
     visibleOnFullScreen: true,
-    skipTransformProcessType: true
+    skipTransformProcessType: false
   });
 
   // Security hardening: this window should never open popups or navigate away
