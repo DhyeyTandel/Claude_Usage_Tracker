@@ -6,7 +6,7 @@
   <title>Claude Usage Tracker — Dhyey Tandel</title>
   <style>
     /* ── Import Google Fonts ── */
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,400;1,6..72,300;1,6..72,400&family=Sofia+Sans:wght@450;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=Sofia+Sans:wght@450;600&display=swap');
 
     /* ── Custom Design System Tokens ── */
     :root {
@@ -44,8 +44,8 @@
     /* ── Typography Styling ── */
     .font-serif {
       font-family: 'Newsreader', Georgia, serif;
-      font-weight: 300;
-      letter-spacing: -0.02em;
+      font-weight: 400;
+      letter-spacing: -0.015em;
     }
     
     .font-mono {
@@ -125,11 +125,18 @@
       background: var(--orange);
       top: -10%;
       left: 10%;
+      animation: float-slow 20s ease-in-out infinite;
     }
     .orb-blurple {
       background: var(--blurple);
       bottom: 10%;
       right: -10%;
+      animation: float-slow 25s ease-in-out infinite reverse;
+    }
+
+    @keyframes float-slow {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(40px, -30px) scale(1.06); }
     }
 
     /* Ghost Watermark Text */
@@ -166,6 +173,12 @@
       border-radius: 50%;
       background-color: var(--orange);
       display: inline-block;
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(238, 83, 8, 0.4); }
+      50% { transform: scale(1.25); box-shadow: 0 0 8px 3px rgba(238, 83, 8, 0.6); }
     }
 
     .hero-title {
@@ -173,6 +186,7 @@
       line-height: 1.15;
       color: var(--ink);
       margin-bottom: 24px;
+      font-weight: 500;
     }
 
     .hero-body {
@@ -222,6 +236,57 @@
       box-shadow: 0 10px 20px rgba(23, 20, 15, 0.03);
     }
 
+      text-align: left;
+    }
+
+    /* ── Ticker / Marquee Styling ── */
+    .marquee-container {
+      background-color: var(--ink);
+      color: var(--paper);
+      overflow: hidden;
+      padding: 8px 0;
+      border-bottom: 1px solid #33312C;
+      position: relative;
+      z-index: 11;
+      user-select: none;
+    }
+    .marquee-track {
+      display: flex;
+      width: max-content;
+      animation: marquee-scroll 25s linear infinite;
+    }
+    .marquee-content {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      padding-right: 4rem;
+    }
+    @keyframes marquee-scroll {
+      0% { transform: translate3d(0, 0, 0); }
+      100% { transform: translate3d(-50%, 0, 0); }
+    }
+
+    /* ── Staggered Entrance Animations ── */
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    .animate-fade-up {
+      opacity: 0;
+      animation: fadeUp 1s var(--ease-spring) forwards;
+    }
+    .delay-1 { animation-delay: 80ms; }
+    .delay-2 { animation-delay: 160ms; }
+    .delay-3 { animation-delay: 240ms; }
+    .delay-4 { animation-delay: 320ms; }
+
     /* ── Mock App Widget Component ── */
     .mock-widget-container {
       display: flex;
@@ -239,6 +304,11 @@
       padding: 14px 16px;
       color: #F3EFE7;
       text-align: left;
+      transition: transform 0.4s var(--ease-spring), box-shadow 0.4s var(--ease-swift);
+    }
+    .widget-shadow-box:hover {
+      transform: translateY(-6px) scale(1.02);
+      box-shadow: 0 35px 80px rgba(0, 0, 0, 0.45);
     }
 
     /* Inner widget styling matching the actual app */
@@ -388,18 +458,20 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      transition: transform 0.25s var(--ease-spring), box-shadow 0.25s var(--ease-swift);
+      transition: transform 0.35s var(--ease-spring), box-shadow 0.35s var(--ease-swift), border-color 0.35s var(--ease-swift);
     }
     .card-square:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 15px 35px rgba(23, 20, 15, 0.03);
+      transform: translateY(-4px) rotate(-1deg);
+      box-shadow: 0 20px 40px rgba(23, 20, 15, 0.05);
       border-color: var(--ink);
     }
 
     .card-icon {
-      font-size: 24px;
+      width: 24px;
+      height: 24px;
+      stroke: var(--orange);
+      stroke-width: 1.5px;
       margin-bottom: 24px;
-      color: var(--orange);
     }
 
     .card-title {
@@ -567,11 +639,23 @@
 </head>
 <body>
 
+  <!-- ── Ticking Marquee / Proof Rail ── -->
+  <div class="marquee-container">
+    <div class="marquee-track">
+      <div class="marquee-content">
+        • TELEGRAM BOT NOTIFICATIONS ENABLED • 429 RATE LIMIT FALLBACK BUILT-IN • ZERO LOCAL CREDENTIALS EXPOSED • RUNS SECURELY ON MAC & WINDOWS • 100% PERSONAL VOLTAGE
+      </div>
+      <div class="marquee-content">
+        • TELEGRAM BOT NOTIFICATIONS ENABLED • 429 RATE LIMIT FALLBACK BUILT-IN • ZERO LOCAL CREDENTIALS EXPOSED • RUNS SECURELY ON MAC & WINDOWS • 100% PERSONAL VOLTAGE
+      </div>
+    </div>
+  </div>
+
   <!-- ── Navigation ── -->
   <header>
     <div class="container nav-inner">
       <a href="#" class="wordmark font-serif">Dhyey Tandel</a>
-      <a href="Claude-Usage-Tracker-1.1.0-arm64.dmg" class="btn-pill" download>
+      <a href="#download-links" class="btn-pill" style="padding: 10px 24px;">
         Download v1.1.0
       </a>
     </div>
@@ -585,27 +669,32 @@
     
     <div class="container hero-inner">
       <div class="hero-content">
-        <div class="eyebrow-container">
+        <div class="eyebrow-container animate-fade-up">
           <span class="eyebrow-dot"></span>
-          <span class="font-mono" style="color: var(--muted);">utility · macOS</span>
+          <span class="font-mono" style="color: var(--muted);">utility · macOS & Windows</span>
         </div>
-        <h1 class="hero-title font-serif">
+        <h1 class="hero-title font-serif animate-fade-up delay-1">
           A desktop widget to track your <em>Claude Code</em> usage.
         </h1>
-        <p class="hero-body">
-          Built because I wanted it to exist. Keep tabs on <strong>5-hour session resets</strong>, weekly rate limits, and monthly <strong>Anthropic API costs</strong> right in your system menu bar.
+        <p class="hero-body animate-fade-up delay-2">
+          Built because I wanted it to exist. Keep tabs on <strong>5-hour session resets</strong>, weekly rate limits, and monthly <strong>Anthropic API costs</strong> right in your system menu bar or tray.
         </p>
-        <div>
-          <a href="Claude-Usage-Tracker-1.1.0-arm64.dmg" class="btn-pill" download>
-            Download for Mac (arm64) →
-          </a>
-          <a href="https://github.com/DhyeyTandel/Claude_Usage_Tracker" class="btn-pill btn-secondary" target="_blank">
-            Source Code ↗
+        <div id="download-links" class="animate-fade-up delay-3" style="display: flex; flex-direction: column; gap: 12px; align-items: flex-start;">
+          <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+            <a href="Claude-Usage-Tracker-1.1.0-arm64.dmg" class="btn-pill" download>
+              Download for Mac (arm64) →
+            </a>
+            <a href="Claude-Usage-Tracker-Setup-1.1.0.exe" class="btn-pill btn-secondary" download style="margin-left: 0;">
+              Download for Windows (x64) →
+            </a>
+          </div>
+          <a href="https://github.com/DhyeyTandel/Claude_Usage_Tracker" class="btn-pill btn-secondary" target="_blank" style="margin-left: 0; padding: 10px 20px; font-size: 12px; border-color: var(--hairline);">
+            View Source Code on GitHub ↗
           </a>
         </div>
       </div>
       
-      <div class="mock-widget-container">
+      <div class="mock-widget-container animate-fade-up delay-4">
         <!-- Exact Mockup of Claude Usage Tracker Widget -->
         <div class="widget-shadow-box">
           <div class="widget-header">
@@ -693,7 +782,10 @@
       <div class="features-grid">
         <!-- Feature 1 -->
         <div class="card-square">
-          <div class="card-icon">🔔</div>
+          <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+            <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+          </svg>
           <div>
             <h3 class="card-title font-serif">Telegram bot notifications</h3>
             <p class="card-body">
@@ -703,7 +795,9 @@
         </div>
         <!-- Feature 2 -->
         <div class="card-square">
-          <div class="card-icon">⚡</div>
+          <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+          </svg>
           <div>
             <h3 class="card-title font-serif">Surprise reset detection</h3>
             <p class="card-body">
@@ -713,7 +807,13 @@
         </div>
         <!-- Feature 3 -->
         <div class="card-square">
-          <div class="card-icon">🎨</div>
+          <svg class="card-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+            <path d="M12 2v20" />
+            <path d="M12 12h10" />
+            <path d="M12 12l7.07 7.07" />
+            <path d="M12 12L19.07 4.93" />
+          </svg>
           <div>
             <h3 class="card-title font-serif">Tactile theme switch</h3>
             <p class="card-body">
@@ -737,7 +837,7 @@
           Set up Telegram notifications in <em>three minutes</em>.
         </h2>
         <p style="color: var(--muted); margin-bottom: 32px; max-width: 400px;">
-          The app encrypts your Admin API key and Telegram bot credentials using macOS Keychain/OS-level <strong>safeStorage</strong> before local persistence.
+          The app encrypts your Admin API key and Telegram bot credentials using OS-level <strong>safeStorage</strong> (macOS Keychain / Windows DPAPI) before local persistence.
         </p>
         <a href="https://github.com/DhyeyTandel/Claude_Usage_Tracker#telegram-setup" class="btn-pill btn-secondary" target="_blank" style="margin-left: 0;">
           Read Full Documentation ↗
